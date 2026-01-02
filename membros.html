@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GAMERS • Membros</title>
+
+  <!-- Fontes e Ícones -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary: #6366f1;
+      --background: #f8fafc;
+      --card: #ffffff;
+      --text: #334155;
+      --muted: #64748b;
+    }
+
+    body.dark {
+      --primary: #818cf8;
+      --background: #020617;
+      --card: #020617;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--background);
+      color: var(--text);
+      transition: 0.3s;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      z-index: 1000;
+    }
+
+    nav a {
+      color: #fff;
+      text-decoration: none;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toggle {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+
+    /* HEADER */
+    header {
+      padding: 140px 20px 90px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 3rem;
+      margin-bottom: 15px;
+    }
+
+    header p {
+      max-width: 700px;
+      margin: auto;
+      color: var(--muted);
+    }
+
+    /* FRASE */
+    .quote {
+      margin: 60px auto;
+      max-width: 800px;
+      text-align: center;
+      font-size: 1.3rem;
+      font-style: italic;
+      opacity: 0.9;
+    }
+
+    /* STATS */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 25px;
+      max-width: 1000px;
+      margin: 0 auto 80px;
+      padding: 0 20px;
+    }
+
+    .stat {
+      background: var(--card);
+      padding: 35px;
+      border-radius: 20px;
+      text-align: center;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.08);
+    }
+
+    .stat i {
+      font-size: 2.2rem;
+      color: var(--primary);
+      margin-bottom: 10px;
+    }
+
+    .stat h3 {
+      font-size: 2rem;
+      margin-bottom: 5px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    /* MEMBROS */
+    main {
+      max-width: 1100px;
+      margin: auto;
+      padding: 0 20px 80px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 25px;
+    }
+
+    .card {
+      background: var(--card);
+      padding: 35px 25px;
+      border-radius: 22px;
+      text-align: center;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.08);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 25px 45px rgba(0,0,0,0.15);
+    }
+
+    .avatar {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), #4338ca);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 2rem;
+      margin: 0 auto 15px;
+    }
+
+    .role {
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-top: 6px;
+    }
+
+    .desc {
+      margin-top: 12px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    /* ANIMAÇÕES */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: 0.8s ease;
+    }
+
+    .reveal.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="sla91.html"><i class='bx bx-left-arrow-alt'></i> Página principal</a>
+  <button class="toggle" onclick="toggleTheme()">
+    <i class='bx bx-moon'></i>
+  </button>
+</nav>
+
+<header class="reveal">
+  <h1>Membros</h1>
+  <p>Por trás de toda história, existem pessoas. Aqui estão aqueles que fizeram o GAMERS existir.</p>
+</header>
+
+<div class="quote reveal">
+  “Grupos nascem. Lendas permanecem.”
+</div>
+
+<section class="stats reveal">
+  <div class="stat">
+    <i class='bx bx-group'></i>
+    <h3>5</h3>
+    <span>Membros Marcantes</span>
+  </div>
+  <div class="stat">
+    <i class='bx bx-calendar'></i>
+    <h3>2023</h3>
+    <span>Ideia Inicial</span>
+  </div>
+  <div class="stat">
+    <i class='bx bx-joystick'></i>
+    <h3>Muitas</h3>
+    <span>Horas de Jogo</span>
+  </div>
+</section>
+
+<main>
+  <div class="grid">
+
+    <div class="card reveal">
+      <div class="avatar">MG</div>
+      <h3>Michel G.</h3>
+      <p class="role">Fundador • Admin</p>
+      <p class="desc">Idealizador do GAMERS e responsável por manter o grupo vivo até hoje.</p>
+    </div>
+
+    <div class="card reveal">
+      <div class="avatar">E</div>
+      <h3>Enzo</h3>
+      <p class="role">Membro Original</p>
+      <p class="desc">Presente desde o início, ajudou a formar a base do grupo.</p>
+    </div>
+
+    <div class="card reveal">
+      <div class="avatar">E</div>
+      <h3>Estevan</h3>
+      <p class="role">Membro Original</p>
+      <p class="desc">Parte essencial da fase inicial do GAMERS.</p>
+    </div>
+
+    <div class="card reveal">
+      <div class="avatar">T</div>
+      <h3>Tibério</h3>
+      <p class="role">Ex-Membro</p>
+      <p class="desc">Figura marcante na história, responsável por um dos maiores conflitos do grupo.</p>
+    </div>
+
+    <div class="card reveal">
+      <div class="avatar">M</div>
+      <h3>Mathias</h3>
+      <p class="role">Membro Ativo</p>
+      <p class="desc">Chegou na retomada e ajudou o grupo a seguir em frente.</p>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  © 2026 • GAMERS • Toda lenda começa com um grupo
+</footer>
+
+<script>
+  function toggleTheme() {
+    document.body.classList.toggle('dark');
+  }
+
+  const reveals = document.querySelectorAll('.reveal');
+  window.addEventListener('scroll', () => {
+    reveals.forEach(el => {
+      const top = el.getBoundingClientRect().top;
+      if (top < window.innerHeight - 80) {
+        el.classList.add('active');
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
