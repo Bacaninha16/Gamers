@@ -10,6 +10,15 @@
   <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
 
   <style>
+  
+  /* Destaque discreto para Primeiro-Ministro */
+.card.minister .avatar {
+  background: linear-gradient(135deg, #34d399, #10b981); /* verde bonito */
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.5);
+}
+  
     :root {
       --primary: #6366f1;
       --background: #f8fafc;
@@ -187,6 +196,47 @@
       color: var(--muted);
     }
 
+    /* =========================
+       DESTAQUE DO FUNDADOR
+       ========================= */
+
+    .card.highlight {
+      position: relative;
+      border: 2px solid var(--primary);
+      box-shadow: 0 25px 50px rgba(99, 102, 241, 0.35);
+      transform: translateY(-6px);
+      animation: founderGlow 3s ease-in-out infinite;
+    }
+
+    .card.highlight::before {
+      content: "★ FUNDADOR";
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary);
+      color: #fff;
+      padding: 4px 14px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      box-shadow: 0 6px 15px rgba(0,0,0,0.25);
+    }
+
+    .card.highlight .avatar {
+      background: linear-gradient(135deg, #facc15, #eab308);
+      color: #1e293b;
+      font-weight: 700;
+      box-shadow: 0 10px 25px rgba(234, 179, 8, 0.6);
+    }
+
+    @keyframes founderGlow {
+      0% { box-shadow: 0 20px 45px rgba(99,102,241,0.25); }
+      50% { box-shadow: 0 30px 65px rgba(99,102,241,0.45); }
+      100% { box-shadow: 0 20px 45px rgba(99,102,241,0.25); }
+    }
+
     /* FOOTER */
     footer {
       text-align: center;
@@ -212,7 +262,7 @@
 
 <nav>
   <a href="index.html"><i class='bx bx-left-arrow-alt'></i> Página principal</a>
-  <button class="toggle" onclick="toggleTheme()">
+  <button class="toggle" onclick="toggleTheme()" aria-label="Alternar tema">
     <i class='bx bx-moon'></i>
   </button>
 </nav>
@@ -252,13 +302,23 @@
 <main>
   <div class="grid">
 
-    <div class="card reveal">
+    <!-- FUNDADOR -->
+    <div class="card reveal highlight">
       <div class="avatar">MG</div>
       <h3>Michel G.</h3>
       <p class="role">Fundador • Admin</p>
       <p class="desc">Idealizador do GAMERS e responsável por manter o grupo vivo até hoje.</p>
     </div>
-
+    
+    <div class="card reveal minister">
+  <div class="avatar">E</div>
+  <h3>Estevan</h3>
+  <p class="role">Primeiro-Ministro</p>
+  <p class="desc">Figura essencial do grupo, ajudou a formar a base do grup.</p>
+</div>
+<div class="card reveal">
+  
+  
     <div class="card reveal">
       <div class="avatar">E</div>
       <h3>Enzo</h3>
@@ -272,28 +332,35 @@
       <p class="role">Membro Original</p>
       <p class="desc">Parte essencial da fase inicial do GAMERS.</p>
     </div>
-    
+
     <div class="card reveal">
       <div class="avatar">F</div>
       <h3>Francisco</h3>
       <p class="role">Novo Membro</p>
-      <p class="desc">entrou no Grupo em 01/2026.</p>
+      <p class="desc">Entrou no grupo em janeiro de 2026.</p>
     </div>
+
+
+
+<div class="card reveal">
+  <div class="avatar">T</div>
+  <h3><i class='bx bx-x-circle'></i> Tibério</h3>
+  <p class="role">Ex-Membro</p>
+  <p class="desc">
+    Figura marcante na história, responsável por um dos maiores conflitos do grupo.
+  </p>
+  
+</div>
     
-       <div class="card reveal">
-      <div class="avatar">A</div>
-      <h3>Antonio</h3>
-      <p class="role"Novo Membro</p>
-      <p class="desc">Entrou Junto De Francisco</p>
-    </div>
-
-    <div class="card reveal">
-      <div class="avatar">T</div>
-      <h3>Tibério</h3>
-      <p class="role">Ex-Membro</p>
-      <p class="desc">Figura marcante na história, responsável por um dos maiores conflitos do grupo.</p>
-    </div>
-
+<div class="card reveal">
+  <div class="avatar">A</div>
+  <h3><i class='bx bx-log-out'></i> Antonio</h3>
+  <p class="role">Ex-Membro</p>
+  <p class="desc">Entrou junto de Francisco e ficou pouco tempo no grupo.</p>
+  <p class="desc">04/01/2026 – 13/01/2026</p>
+</div>
+    
+    
     <div class="card reveal">
       <div class="avatar">M</div>
       <h3>Mathias</h3>
@@ -313,15 +380,17 @@
     document.body.classList.toggle('dark');
   }
 
-  const reveals = document.querySelectorAll('.reveal');
-  window.addEventListener('scroll', () => {
-    reveals.forEach(el => {
+  function revealElements() {
+    document.querySelectorAll('.reveal').forEach(el => {
       const top = el.getBoundingClientRect().top;
       if (top < window.innerHeight - 80) {
         el.classList.add('active');
       }
     });
-  });
+  }
+
+  window.addEventListener('scroll', revealElements);
+  window.addEventListener('load', revealElements);
 </script>
 
 </body>
