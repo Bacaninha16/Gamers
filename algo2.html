@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Tempo de vida</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #222;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    flex-direction: column;
+    margin: 0;
+    padding: 20px;
+  }
+
+  #gameBox {
+    background-color: #333;
+    padding: 20px;
+    border-radius: 10px;
+    width: 95%;
+    max-width: 450px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  input {
+    padding: 10px;
+    font-size: 16px;
+    width: 80%;
+    margin: 10px 0;
+    border-radius: 5px;
+    border: none;
+    text-align: center;
+  }
+
+  button {
+    padding: 10px 15px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+    margin-top: 10px;
+  }
+
+  button:hover {
+    background-color: #45a049;
+  }
+
+  #output, #sleepOutput, #workOutput, #smartOutput, #summaryOutput {
+    margin-top: 20px;
+    text-align: left;
+    line-height: 1.5;
+  }
+
+  #sleepSection, #workSection, #smartSection, #summarySection {
+    margin-top: 20px;
+    display: none;
+  }
+
+  #lifeBarContainer {
+    width: 100%;
+    background-color: #555;
+    border-radius: 10px;
+    margin-top: 15px;
+    height: 30px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .barSegment {
+    height: 100%;
+    float: left;
+    text-align: center;
+    line-height: 30px;
+    color: white;
+    font-weight: bold;
+    width: 0%;
+    transition: width 0.5s;
+  }
+
+  #screenSegment { background-color: #4CAF50; }
+  #sleepSegment { background-color: #2196F3; }
+  #workSegment { background-color: #FF9800; }
+  #smartSegment { background-color: #9C27B0; }
+</style>
+</head>
+<body>
+
+<h1>⏳ Tempo de vida</h1>
+<div id="gameBox">
+  <p>Informe sua idade e quanto tempo você passa nas telas por dia:</p>
+  <input type="number" id="age" placeholder="Idade" min="0" max="120"><br>
+  <input type="number" id="screenTime" placeholder="Horas/dia" min="0" max="24"><br>
+  <button onclick="calculateLife()">Calcular</button>
+
+  <div id="output"></div>
+
+  <div id="lifeBarContainer">
+    <div id="screenSegment" class="barSegment"></div>
+    <div id="sleepSegment" class="barSegment"></div>
+    <div id="workSegment" class="barSegment"></div>
+    <div id="smartSegment" class="barSegment"></div>
+  </div>
+
+  <div id="sleepSection">
+    <p>Quanto tempo você dorme por dia (em horas)?</p>
+    <input type="number" id="sleepTime" placeholder="Horas de sono" min="0" max="24"><br>
+    <button onclick="calculateSleep()">Calcular sono</button>
+    <div id="sleepOutput"></div>
+  </div>
+
+  <div id="workSection">
+    <p>Quanto tempo você passa trabalhando ou estudando por dia (em horas)?</p>
+    <input type="number" id="workTime" placeholder="Horas trabalho/escola" min="0" max="24"><br>
+    <button onclick="calculateWork()">Calcular trabalho/escola</button>
+    <div id="workOutput"></div>
+  </div>
+
+  <div id="smartSection">
+    <p>Quanto tempo você passa em atividades inteligentes por dia (ler, estudar, hobbies construtivos)?</p>
+    <input type="number" id="smartTime" placeholder="Horas atividades inteligentes" min="0" max="24"><br>
+    <button onclick="calculateSmart()">Calcular</button>
+    <div id="smartOutput"></div>
+  </div>
+
+  <div id="summarySection">
+    <h2>📊 Visão Geral da Sua Vida Digital</h2>
+    <div id="summaryOutput"></div>
+  </div>
+</div>
+
+<script>
+let ageGlobal = 0;
+let deathAgeGlobal = 0;
+let totalScreenTimeGlobal = 0;
+let totalSleepTimeGlobal = 0;
+let totalWorkTimeGlobal = 0;
+let totalSmartTimeGlobal = 0;
+
+function calculateLife() {
+  const age = parseInt(document.getElementById("age").value);
+  const screenTime = parseFloat(document.getElementById("screenTime").value);
+  const output = document.getElementById("output");
+  const sleepSection = document.getElementById("sleepSection");
+  resetAll();
+  
+  if(isNaN(age) || age < 0 || age > 120) {
+    output.innerHTML = "<p class='fact'>Por favor, insira uma idade válida.</p>";
+    return;
+  }
+  if(isNaN(screenTime) || screenTime < 0 || screenTime > 24) {
+    output.innerHTML = "<p class='fact'>Por favor, insira horas/dia válidas (0–24).</p>";
+    return;
+  }
+
+  ageGlobal = age;
+  deathAgeGlobal = Math.floor(Math.random() * 11) + 80;
+  const daysLeft = (deathAgeGlobal - age) * 365;
+  totalScreenTimeGlobal = screenTime * daysLeft;
+
+  const totalHours = daysLeft * 24;
+  const screenPercent = ((totalScreenTimeGlobal / totalHours) * 100).toFixed(1);
+
+  let message = screenPercent > 30 ? "⚠️ Você passa muito tempo nas telas!" : "👍 Tempo de tela razoável.";
+
+  output.innerHTML = `
+    <p class='fact'>Tempo nas telas até os ${deathAgeGlobal} anos:</p>
+    <p class='fact'>- Total de horas: <strong>${Math.floor(totalScreenTimeGlobal)}h</strong></p>
+    <p class='fact'>- Percentual do tempo restante: <strong>${screenPercent}%</strong></p>
+    <p class='fact'>${message}</p>
+  `;
+  animateBar("screenSegment", screenPercent);
+  sleepSection.style.display = "block";
+}
+
+function calculateSleep() {
+  const sleepTime = parseFloat(document.getElementById("sleepTime").value);
+  const sleepOutput = document.getElementById("sleepOutput");
+  const workSection = document.getElementById("workSection");
+  sleepOutput.innerHTML = "";
+
+  if(isNaN(sleepTime) || sleepTime < 0 || sleepTime > 24) {
+    sleepOutput.innerHTML = "<p class='fact'>Por favor, insira horas válidas (0–24).</p>";
+    return;
+  }
+
+  const daysLeft = (deathAgeGlobal - ageGlobal) * 365;
+  totalSleepTimeGlobal = sleepTime * daysLeft;
+
+  const totalHours = daysLeft * 24;
+  const sleepPercent = ((totalSleepTimeGlobal / totalHours) * 100).toFixed(1);
+
+  let message = sleepPercent < 25 ? "⚠️ Você está dormindo pouco!" : "💤 Sono suficiente.";
+
+  sleepOutput.innerHTML = `
+    <p class='fact'>Tempo de sono até os ${deathAgeGlobal} anos:</p>
+    <p class='fact'>- Total de horas: <strong>${Math.floor(totalSleepTimeGlobal)}h</strong></p>
+    <p class='fact'>- Percentual do tempo restante: <strong>${sleepPercent}%</strong></p>
+    <p class='fact'>${message}</p>
+  `;
+
+  animateBar("sleepSegment", sleepPercent);
+  workSection.style.display = "block";
+}
+
+function calculateWork() {
+  const workTime = parseFloat(document.getElementById("workTime").value);
+  const workOutput = document.getElementById("workOutput");
+  const smartSection = document.getElementById("smartSection");
+  workOutput.innerHTML = "";
+
+  if(isNaN(workTime) || workTime < 0 || workTime > 24) {
+    workOutput.innerHTML = "<p class='fact'>Por favor, insira horas válidas (0–24).</p>";
+    return;
+  }
+
+  const daysLeft = (deathAgeGlobal - ageGlobal) * 365;
+  totalWorkTimeGlobal = workTime * daysLeft;
+
+  const totalHours = daysLeft * 24;
+  const workPercent = ((totalWorkTimeGlobal / totalHours) * 100).toFixed(1);
+
+  let message = workPercent > 40 ? "⚠️ Você passa muito tempo trabalhando/estudando!" : "✅ Trabalho/estudo equilibrado.";
+
+  workOutput.innerHTML = `
+    <p class='fact'>Tempo de trabalho/escola até os ${deathAgeGlobal} anos:</p>
+    <p class='fact'>- Total de horas: <strong>${Math.floor(totalWorkTimeGlobal)}h</strong></p>
+    <p class='fact'>- Percentual do tempo restante: <strong>${workPercent}%</strong></p>
+    <p class='fact'>${message}</p>
+  `;
+
+  animateBar("workSegment", workPercent);
+  smartSection.style.display = "block";
+}
+
+function calculateSmart() {
+  const smartTime = parseFloat(document.getElementById("smartTime").value);
+  const smartOutput = document.getElementById("smartOutput");
+  const summarySection = document.getElementById("summarySection");
+  smartOutput.innerHTML = "";
+
+  if(isNaN(smartTime) || smartTime < 0 || smartTime > 24) {
+    smartOutput.innerHTML = "<p class='fact'>Por favor, insira horas válidas (0–24).</p>";
+    return;
+  }
+
+  const daysLeft = (deathAgeGlobal - ageGlobal) * 365;
+  totalSmartTimeGlobal = smartTime * daysLeft;
+
+  const totalHours = daysLeft * 24;
+  let smartPercent = 0;
+
+  if(smartTime > 0) {
+    smartPercent = ((totalSmartTimeGlobal / totalHours) * 100).toFixed(1);
+
+    let message = "💡 Você dedica algum tempo a atividades inteligentes!";
+    if(smartPercent > 5 && smartPercent <= 15) message = "✨ Muito bom! Isso é saudável para o cérebro.";
+    if(smartPercent > 15) message = "🏆 Excelente! Você está usando seu tempo com inteligência!";
+
+    smartOutput.innerHTML = `
+      <p class='fact'>Tempo de atividades inteligentes até os ${deathAgeGlobal} anos:</p>
+      <p class='fact'>- Total de horas: <strong>${Math.floor(totalSmartTimeGlobal)}h</strong></p>
+      <p class='fact'>- Percentual do tempo restante: <strong>${smartPercent}%</strong></p>
+      <p class='fact'>${message}</p>
+    `;
+    animateBar("smartSegment", smartPercent);
+  } else {
+    document.getElementById("smartSegment").style.width = "0";
+    document.getElementById("smartSegment").textContent = "";
+    smartOutput.innerHTML = "<p class='fact'>Você não dedica tempo a atividades inteligentes.</p>";
+  }
+
+  // Mostrar visão geral
+  summarySection.style.display = "block";
+  showSummary();
+}
+
+function showSummary() {
+  const daysLeft = (deathAgeGlobal - ageGlobal) * 365;
+  const totalHours = daysLeft * 24;
+
+  const screenPercent = ((totalScreenTimeGlobal / totalHours) * 100).toFixed(1);
+  const sleepPercent = ((totalSleepTimeGlobal / totalHours) * 100).toFixed(1);
+  const workPercent = ((totalWorkTimeGlobal / totalHours) * 100).toFixed(1);
+  const smartPercent = totalSmartTimeGlobal > 0 ? ((totalSmartTimeGlobal / totalHours) * 100).toFixed(1) : 0;
+
+  let message = "✅ Sua vida está equilibrada!";
+  if(screenPercent > 30) message = "⚠️ Cuidado! Muito tempo nas telas!";
+  if(sleepPercent < 25) message = "⚠️ Você está dormindo pouco!";
+  if(workPercent > 40) message = "⚠️ Muito tempo dedicado ao trabalho/estudo!";
+  if(smartPercent > 15) message += " 🏆 Excelente tempo em atividades inteligentes!";
+
+  const summaryOutput = document.getElementById("summaryOutput");
+  summaryOutput.innerHTML = `
+    <p class='fact'><strong>Resumo geral:</strong></p>
+    <p class='fact'>- Telas: ${Math.floor(totalScreenTimeGlobal)}h (${screenPercent}%)</p>
+    <p class='fact'>- Sono: ${Math.floor(totalSleepTimeGlobal)}h (${sleepPercent}%)</p>
+    <p class='fact'>- Trabalho/Escola: ${Math.floor(totalWorkTimeGlobal)}h (${workPercent}%)</p>
+    <p class='fact'>- Atividades Inteligentes: ${Math.floor(totalSmartTimeGlobal)}h (${smartPercent}%)</p>
+    <p class='fact'>${message}</p>
+  `;
+}
+
+function resetAll() {
+  ["screenSegment","sleepSegment","workSegment","smartSegment"].forEach(id => {
+    document.getElementById(id).style.width = "0";
+    document.getElementById(id).textContent = "";
+  });
+  document.getElementById("sleepSection").style.display = "none";
+  document.getElementById("workSection").style.display = "none";
+  document.getElementById("smartSection").style.display = "none";
+  document.getElementById("summarySection").style.display = "none";
+  document.getElementById("output").innerHTML = "";
+  document.getElementById("sleepOutput").innerHTML = "";
+  document.getElementById("workOutput").innerHTML = "";
+  document.getElementById("smartOutput").innerHTML = "";
+  document.getElementById("summaryOutput").innerHTML = "";
+}
+
+function animateBar(segmentId, targetPercent) {
+  const segment = document.getElementById(segmentId);
+  let width = 0;
+  const interval = setInterval(() => {
+    if(width >= targetPercent) {
+      segment.textContent = targetPercent + "%";
+      clearInterval(interval);
+    } else {
+      width += 0.5;
+      segment.style.width = width + "%";
+      segment.textContent = Math.floor(width) + "%";
+    }
+  }, 10);
+}
+</script>
+</body>
+</html>

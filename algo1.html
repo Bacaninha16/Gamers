@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Jogo: Pegue o Quadrado</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #222;
+    color: #fff;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #gameArea {
+    position: relative;
+    width: 80vw;
+    max-width: 300px;
+    height: 50vh;
+    max-height: 300px;
+    background-color: #333;
+    border: 2px solid #fff;
+    margin-bottom: 15px;
+    border-radius: 10px;
+    box-shadow: 0 0 8px #000;
+  }
+
+  #square {
+    position: absolute;
+    width: 12vw;
+    max-width: 50px;
+    height: 12vw;
+    max-height: 50px;
+    background-color: #ff5722;
+    cursor: pointer;
+    transition: all 0.1s;
+    border-radius: 5px;
+  }
+
+  #square.clicked {
+    transform: scale(1.2);
+    background-color: #ff8a50;
+  }
+
+  #score {
+    font-size: 4.5vw;
+    max-font-size: 22px;
+    font-weight: bold;
+  }
+
+  #timer {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background-color: #00000080;
+    padding: 4px 8px;
+    border-radius: 5px;
+    font-size: 3.5vw;
+    max-font-size: 20px;
+    font-weight: bold;
+    color: #0f0;
+  }
+
+  h1 {
+    font-size: 5.5vw;
+    max-font-size: 28px;
+    margin-bottom: 8px;
+  }
+
+  #rotateNotice {
+    display: none;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #222;
+    color: #fff;
+    font-size: 5.5vw;
+    text-align: center;
+    padding-top: 45vh;
+    box-sizing: border-box;
+    z-index: 10;
+  }
+
+  @media screen and (orientation: landscape) {
+    #gameArea, #square, #score, h1, #timer {
+      display: none;
+    }
+    #rotateNotice {
+      display: block;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h1>Pegue o Quadrado</h1>
+<div id="gameArea">
+  <div id="square"></div>
+  <div id="timer">7.0s</div>
+</div>
+<div id="score">Pontos: 0</div>
+
+<div id="rotateNotice">Por favor, vire seu celular para retrato</div>
+
+<script>
+const square = document.getElementById('square');
+const gameArea = document.getElementById('gameArea');
+const scoreDisplay = document.getElementById('score');
+const timerDisplay = document.getElementById('timer');
+
+// --- Som embutido base64 ---
+const clickSound = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=");
+
+let score = 0;
+let timeLimit = 7000; // tempo inicial 7s
+let remainingTime = timeLimit;
+let lastTime = Date.now();
+
+// limites para não ficar impossível
+const MIN_TIME_LIMIT = 1500;
+
+function moveSquare() {
+  const maxX = gameArea.clientWidth - square.clientWidth;
+  const maxY = gameArea.clientHeight - square.clientHeight;
+  const randomX = Math.floor(Math.random() * maxX);
+  const randomY = Math.floor(Math.random() * maxY);
+  square.style.left = randomX + 'px';
+  square.style.top = randomY + 'px';
+}
+
+function resetGame() {
+  alert(`Você perdeu! Pontos finais: ${score}`);
+  score = 0;
+  scoreDisplay.textContent = 'Pontos: 0';
+  timeLimit = 7000;
+  remainingTime = timeLimit;
+  moveSquare();
+}
+
+square.addEventListener('click', () => {
+  score++;
+  scoreDisplay.textContent = 'Pontos: ' + score;
+
+  // toca o som
+  clickSound.currentTime = 0;
+  clickSound.play();
+
+  square.classList.add('clicked');
+  setTimeout(() => square.classList.remove('clicked'), 150);
+
+  // aumenta dificuldade lentamente
+  timeLimit = Math.max(MIN_TIME_LIMIT, timeLimit - 50);
+  remainingTime = timeLimit;
+
+  moveSquare();
+});
+
+function updateTimerColor() {
+  const ratio = remainingTime / timeLimit;
+  if (ratio > 0.6) {
+    timerDisplay.style.color = "#0f0";
+  } else if (ratio > 0.3) {
+    timerDisplay.style.color = "#ff0";
+  } else {
+    timerDisplay.style.color = "#f00";
+  }
+}
+
+function gameLoop() {
+  const now = Date.now();
+  const delta = now - lastTime;
+  lastTime = now;
+  remainingTime -= delta;
+
+  timerDisplay.textContent = (remainingTime / 1000).toFixed(1) + 's';
+  updateTimerColor();
+
+  if (remainingTime <= 0) {
+    resetGame();
+    remainingTime = timeLimit;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// inicializa jogo
+moveSquare();
+lastTime = Date.now();
+gameLoop();
+</script>
+
+</body>
+</html>
