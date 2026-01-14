@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>The Password Game: Edição Extrema 🇧🇷</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+  :root {
+    --primary: #00ff7f;
+    --danger: #ff4d4d;
+    --bg: #0d0d0d;
+    --card: #1a1a1a;
+  }
+
+  body {
+    background: var(--bg);
+    color: #fff;
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 500px;
+    background: var(--card);
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+    position: relative;
+    z-index: 1;
+  }
+
+  h1 { text-align: center; color: var(--primary); text-shadow: 0 0 10px rgba(0,255,127,0.3); }
+
+  input {
+    width: 100%;
+    padding: 18px;
+    font-size: 20px;
+    margin-bottom: 25px;
+    border-radius: 12px;
+    border: 2px solid #333;
+    background: #222;
+    color: #fff;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  input:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(0,255,127,0.2); }
+
+  .rule {
+    background: #262626;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    border-left: 6px solid #444;
+    animation: reveal 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+  }
+
+  @keyframes reveal {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .rule.ok { 
+    background: #1b4d2e; 
+    border-left-color: var(--primary);
+    box-shadow: 0 0 10px rgba(0,255,127,0.1);
+  }
+
+  .rule.fail { background: #4d1b1b; border-left-color: var(--danger); }
+
+  /* Efeito de Tremer */
+  .shake { animation: shake 0.4s; border-color: var(--danger) !important; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    50% { transform: translateX(8px); }
+    75% { transform: translateX(-8px); }
+  }
+
+  /* Partículas de Vitória */
+  .confetti {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    background: var(--primary);
+    top: -10px;
+    z-index: 0;
+    animation: fall 3s linear forwards;
+  }
+
+  @keyframes fall {
+    to { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>🔑 Senha BR Ultra</h1>
+  <input type="text" id="password" placeholder="Sua senha super segura..." oninput="checkRules()">
+  <div id="rules"></div>
+</div>
+
+<script>
+const rules = [
+  {
+    text: "A senha deve ter pelo menos 8 caracteres",
+    test: p => p.length >= 8
+  },
+  {
+    text: "A senha deve conter um número",
+    test: p => /\d/.test(p)
+  },
+  {
+    text: "A senha deve conter uma letra maiúscula",
+    test: p => /[A-Z]/.test(p)
+  },
+  {
+    text: "A senha deve conter um YouTuber brasileiro",
+    test: p => {
+      const yts = ["felipe neto", "alanzoka", "casimiro", "authentic", "jazzghost", "enaldinho", "emilly vick", "luccas neto"]; 
+      return yts.some(y => p.toLowerCase().includes(y));
+    }
+  },
+  {
+    text: "A soma dos números deve ser exatamente 20",
+    test: p => {
+      const nums = p.match(/\d/g);
+      if (!nums) return false;
+      return nums.reduce((a, b) => a + Number(b), 0) === 20;
+    }
+  },
+  {
+    text: "A senha deve conter a sigla de um estado brasileiro (MAIÚSCULO)",
+    test: p => {
+      const ufs = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
+      return ufs.some(uf => p.includes(uf));
+    }
+  },
+  {
+    text: "A senha deve conter o nome de uma capital brasileira",
+    test: p => {
+      const caps = ["aracaju", "belem", "belo horizonte", "boa vista", "brasilia", "campo grande", "cuiaba", "curitiba", "florianopolis", "fortaleza", "goiania", "joao pessoa", "maceio", "manaus", "natal", "palmas", "porto alegre", "porto velho", "recife", "rio branco", "rio de janeiro", "salvador", "sao luis", "sao paulo", "teresina", "vitoria"];
+      return caps.some(c => p.toLowerCase().includes(c));
+    }
+  },
+  {
+    text: "A senha deve conter uma comida típica brasileira",
+    test: p => {
+      const foods = ["feijoada", "coxinha", "pao de queijo", "brigadeiro", "acaraje", "moqueca", "tapioca", "pastel"];
+      return foods.some(f => p.toLowerCase().includes(f));
+    }
+  },
+  {
+    text: "A senha deve conter uma das cores da bandeira do Brasil",
+    test: p => ["verde", "amarelo", "azul", "branco"].some(c => p.toLowerCase().includes(c))
+  },
+  {
+    text: "A senha deve conter os 3 primeiros dígitos do PI (3.14)",
+    test: p => p.includes("3.14")
+  }
+];
+
+let lastValidCount = 0;
+
+function checkRules() {
+  const input = document.getElementById("password");
+  const pass = input.value;
+  const rulesDiv = document.getElementById("rules");
+  rulesDiv.innerHTML = "";
+
+  let firstFailed = false;
+  let currentValidCount = 0;
+
+  rules.forEach((rule) => {
+    if (firstFailed) return;
+
+    const div = document.createElement("div");
+    div.className = "rule";
+    div.textContent = rule.text;
+
+    if (rule.test(pass)) {
+      div.classList.add("ok");
+      currentValidCount++;
+    } else {
+      div.classList.add("fail");
+      firstFailed = true;
+    }
+    rulesDiv.appendChild(div);
+  });
+
+  if (currentValidCount < lastValidCount) {
+    input.classList.add("shake");
+    setTimeout(() => input.classList.remove("shake"), 400);
+  }
+  
+  lastValidCount = currentValidCount;
+
+  if (currentValidCount === rules.length) {
+    celebrate();
+  }
+}
+
+function celebrate() {
+  for (let i = 0; i < 50; i++) {
+    const confetti = document.createElement("div");
+    confetti.className = "confetti";
+    confetti.style.left = Math.random() * 100 + "vw";
+    confetti.style.backgroundColor = ["#009c3b", "#ffdf00", "#002776"][Math.floor(Math.random() * 3)];
+    confetti.style.animationDelay = Math.random() * 2 + "s";
+    document.body.appendChild(confetti);
+    setTimeout(() => confetti.remove(), 3000);
+  }
+  setTimeout(() => alert("🏆 VOCÊ É UM VERDADEIRO BRASILEIRO!"), 500);
+}
+</script>
+</body>
+</html>
