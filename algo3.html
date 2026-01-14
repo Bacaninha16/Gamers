@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Ecossistema - Evoluído</title>
+<style>
+body{ margin:0; font-family:Arial; background:#222; color:white; display:flex; flex-direction:column; align-items:center; }
+h1{margin:10px; font-size: 20px;}
+#gameArea{ width:95%; max-width:500px; height:500px; background:#333; border:3px solid white; border-radius:10px; position:relative; overflow:hidden; touch-action:none; margin-bottom:10px; }
+.bolinha{ position:absolute; border-radius:50%; box-shadow:0 2px 8px rgba(0,0,0,0.4); transition: opacity 0.5s; cursor:pointer; }
+.sangue{ position:absolute; width:4px; height:4px; background:red; border-radius:50%; pointer-events:none; z-index: 5; }
+.pegada{ position:absolute; width:3px; height:3px; border-radius:50%; pointer-events:none; z-index: 1; }
+#controls{margin-top:10px; display:flex; gap:5px; flex-wrap:wrap; justify-content:center;}
+button{ padding:8px 12px; margin:2px; font-size:14px; border-radius:5px; border:none; cursor:pointer; background:#444; color:white;}
+button.active{ background: yellow; color: black; font-weight: bold; }
+#infectAnimal{ background: #2d5a27; color: #aaffaa; border: 1px solid limegreen; }
+#counterPrey, #counterPredator{ position:absolute; padding:5px 10px; background:rgba(0,0,0,0.6); border-radius:5px; font-weight:bold; font-size:14px; z-index: 10; }
+#counterPrey{ top:5px; left:5px; color:deepskyblue; }
+#counterPredator{ top:5px; right:5px; color:red; }
+</style>
+</head>
+<body>
+<h1>Mini Ecossistema: Visão & Decomposição</h1>
+
+<div id="gameArea">
+  <div id="counterPrey">Presas: 0</div>
+  <div id="counterPredator">Predadores: 0</div>
+</div>
+
+<div id="controls">
+  <button id="addPrey">Presa (Azul)</button>
+  <button id="addPredator">Predador (Vermelho)</button>
+  <button id="addTree">Árvore (Verde)</button>
+  <button id="infectAnimal">LANÇAR PRAGA</button> 
+</div>
+
+<script>
+const gameArea = document.getElementById('gameArea');
+const counterPrey = document.getElementById('counterPrey');
+const counterPredator = document.getElementById('counterPredator');
+
+let animals = [];
+let deadBodies = [];
+let particles = [];
+let tracks = [];
+let trees = [];
+let selectedType = null;
+let selectedTool = null;
+let lastTreeSpawn = Date.now();
+let familyIdCounter = 0;
+
+// CONFIGURAÇÕES DE EQUILÍBRIO
+const ADULT_SIZE = 20;
+const BABY_SIZE = 10;
+const GROWTH_RATE = 0.02; 
+const ENERGY_LOSS_NORMAL = 0.0015; 
+const ENERGY_LOSS_SICK = 0.008; 
+const REPRO_COOLDOWN = 6000;
+const MAX_CHILDREN = 2; 
+const BODY_DURATION = 60000; // Corpos ficam por 60 segundos
+const VISION_RANGE = 150;    // Distância máxima que o animal enxerga
+
+function selectType(type){
+  selectedType = type; selectedTool = null;
+  document.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+  if(type) document.getElementById({prey:'addPrey', predator:'addPredator', tree:'addTree'}[type]).classList.add('active');
+}
+
+function selectTool(tool){
+  selectedTool = tool; selectedType = null;
+  document.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+  if(tool) document.getElementById('infectAnimal').classList.add('active');
+}
+
+function createBlood(x, y) {
+  for(let i=0; i<8; i++) {
+    const p = document.createElement('div');
+    p.className = 'sangue'; p.x = x; p.y = y;
+    p.vx = (Math.random()-0.5) * 4; p.vy = (Math.random()-0.5) * 4;
+    p.life = 1.0; gameArea.appendChild(p); particles.push(p);
+  }
+}
+
+function createTrack(x, y, color) {
+  const t = document.createElement('div');
+  t.className = 'pegada'; t.style.background = color;
+  t.style.left = x + 'px'; t.style.top = y + 'px';
+  t.life = 0.5; gameArea.appendChild(t); tracks.push(t);
+}
+
+function createTree(x,y){
+  const t=document.createElement('div');
+  t.className='bolinha'; t.style.width='30px'; t.style.height='30px'; t.style.background='green';
+  t.x=x-15; t.y=y-15; t.style.left=t.x+'px'; t.style.top=t.y+'px';
+  gameArea.appendChild(t); trees.push(t);
+}
+
+function createAnimal(type, x, y, isBaby = false, parentSpeed = null, familyId = null){
+  const a=document.createElement('div');
+  a.className='bolinha'; a.type=type;
+  a.currentSize = isBaby ? BABY_SIZE : ADULT_SIZE;
+  a.style.width = a.currentSize + 'px'; a.style.height = a.currentSize + 'px';
+  a.x = x - a.currentSize/2; a.y = y - a.currentSize/2;
+  
+  let baseSpeed = type === 'prey' ? 1.3 : 1.5;
+  if(parentSpeed) baseSpeed = parentSpeed + (Math.random() * 0.2 - 0.1);
+  a.maxSpeed = baseSpeed;
+  
+  a.vx = (Math.random()-0.5) * 2; a.vy = (Math.random()-0.5) * 2;
+  a.gender = Math.random()<0.5 ? 'M' : 'F';
+  a.originalBorder = a.gender==='M' ? '2px solid yellow' : '2px solid pink';
+  a.style.border = a.originalBorder;
+  
+  a.energy = 1.0; a.lastRepro = Date.now(); a.childrenCount = 0;
+  a.familyId = familyId !== null ? familyId : familyIdCounter++;
+  
+  a.style.background = type==='prey' ? 'deepskyblue' : 'red';
+  a.trackTimer = 0; a.isSick = false; a.lastInfectionSpread = Date.now(); a.sicknessVisualTimer = 0;
+  
+  a.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    if(selectedTool === 'infect' && !a.isSick) { a.isSick = true; a.sicknessVisualTimer = 1; selectTool(null); }
+  });
+
+  gameArea.appendChild(a); animals.push(a);
+  return a;
+}
+
+function loop(){
+  const rect=gameArea.getBoundingClientRect();
+  const now=Date.now();
+
+  // Spawner de árvores
+  if (now - lastTreeSpawn > 8000 && trees.length < 8) { 
+    createTree(Math.random()*(rect.width-30)+15, Math.random()*(rect.height-30)+15);
+    lastTreeSpawn = now;
+  }
+
+  // Partículas de sangue
+  particles.forEach((p, i) => {
+    p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+    p.style.left = p.x + 'px'; p.style.top = p.y + 'px'; p.style.opacity = p.life;
+    if(p.life <= 0) { gameArea.removeChild(p); particles.splice(i, 1); }
+  });
+
+  // Rastros
+  tracks.forEach((t, i) => {
+    t.life -= 0.005; t.style.opacity = t.life;
+    if(t.life <= 0) { gameArea.removeChild(t); tracks.splice(i, 1); }
+  });
+
+  animals.forEach(a => {
+    a.x+=a.vx; a.y+=a.vy;
+    
+    // Colisão com bordas
+    if (a.x < 0) { a.x = 0; a.vx *= -1; }
+    if (a.x > rect.width - a.currentSize) { a.x = rect.width - a.currentSize; a.vx *= -1; }
+    if (a.y < 0) { a.y = 0; a.vy *= -1; }
+    if (a.y > rect.height - a.currentSize) { a.y = rect.height - a.currentSize; a.vy *= -1; }
+
+    // Deixar rastros
+    a.trackTimer++;
+    if(a.trackTimer > 15) { 
+      createTrack(a.x + a.currentSize/2, a.y + a.currentSize/2, a.isSick ? 'rgba(50,255,50,0.3)' : (a.type === 'prey' ? 'rgba(0,191,255,0.2)' : 'rgba(255,0,0,0.2)'));
+      a.trackTimer = 0;
+    }
+
+    // Crescimento e Energia
+    if(a.currentSize < ADULT_SIZE) {
+      a.currentSize += GROWTH_RATE;
+      a.style.width = a.currentSize + 'px'; a.style.height = a.currentSize + 'px';
+    }
+    a.energy -= a.isSick ? ENERGY_LOSS_SICK : ENERGY_LOSS_NORMAL;
+    a.style.opacity = 0.3 + (a.energy * 0.7);
+
+    // Lógica de Doença
+    if(a.isSick) {
+        a.sicknessVisualTimer = (a.sicknessVisualTimer + 0.1) % (Math.PI * 2);
+        a.style.borderColor = `hsl(${Math.sin(a.sicknessVisualTimer) * 40 + 100}, 100%, 50%)`;
+    }
+
+    // --- IA COM VISÃO LIMITADA ---
+    if(a.type==='predator'){
+      let targetPrey=null, minD=VISION_RANGE;
+      animals.forEach(o=>{ 
+        if(o.type==='prey'){ 
+          const d=Math.hypot(o.x-a.x, o.y-a.y); 
+          if(d < minD){ minD=d; targetPrey=o; } 
+        } 
+      });
+
+      if(targetPrey){ // Se vê uma presa, persegue
+        a.vx += (targetPrey.x-a.x)*0.012; a.vy += (targetPrey.y-a.y)*0.012;
+        if(minD < a.currentSize) { 
+          targetPrey.dead = true; a.energy = 1.3; createBlood(targetPrey.x, targetPrey.y);
+          if (targetPrey.isSick && !a.isSick) a.isSick = true;
+        }
+      } else { // Se não vê nada, vira levemente (vagar)
+        a.vx += (Math.random()-0.5)*0.2; a.vy += (Math.random()-0.5)*0.2;
+      }
+    } else {
+      // Presas fogem de predadores próximos (Medo)
+      animals.forEach(o=>{ 
+        if(o.type==='predator' && Math.hypot(o.x-a.x, o.y-a.y) < VISION_RANGE * 0.6){ 
+          a.vx-=(o.x-a.x)*0.025; a.vy-=(o.y-a.y)*0.025; 
+        } 
+      });
+
+      // Busca por árvores apenas se estiverem no campo de visão
+      let targetTree=null, minT=VISION_RANGE;
+      trees.forEach(t=>{ 
+        const d=Math.hypot(t.x-a.x, t.y-a.y); 
+        if(d < minT){ minT=d; targetTree=t; } 
+      });
+      
+      if(targetTree) {
+        a.vx+=(targetTree.x-a.x)*0.006; a.vy+=(targetTree.y-a.y)*0.006;
+        if(minT < 25) a.energy = Math.min(1.0, a.energy + 0.012);
+      } else {
+        a.vx += (Math.random()-0.5)*0.15; a.vy += (Math.random()-0.5)*0.15;
+      }
+    }
+
+    // Reprodução
+    if(a.currentSize >= ADULT_SIZE && !a.isSick && a.childrenCount < MAX_CHILDREN && a.energy > 0.8){
+      animals.forEach(partner => {
+        if(a.type === partner.type && a.gender !== partner.gender && partner.currentSize >= ADULT_SIZE && partner.energy > 0.8){
+          if(a.familyId !== partner.familyId && now - a.lastRepro > REPRO_COOLDOWN && Math.hypot(a.x-partner.x, a.y-partner.y) < 20){
+            a.lastRepro = partner.lastRepro = now;
+            a.energy -= 0.5; a.childrenCount++; partner.childrenCount++;
+            createAnimal(a.type, a.x, a.y, true, a.maxSpeed, familyIdCounter++);
+          }
+        }
+      });
+    }
+
+    // Transmissão de Praga
+    if (a.isSick && now - a.lastInfectionSpread > 500) {
+        animals.forEach(other => { if (a !== other && !other.isSick && Math.hypot(a.x - other.x, a.y - other.y) < 20) { other.isSick = true; a.lastInfectionSpread = now; } });
+    }
+
+    if(a.energy <= 0) { a.dead = true; createBlood(a.x, a.y); }
+    
+    // Limite de velocidade
+    const speed = Math.hypot(a.vx,a.vy);
+    if(speed > a.maxSpeed){ a.vx = (a.vx/speed)*a.maxSpeed; a.vy = (a.vy/speed)*a.maxSpeed; }
+    a.style.left=a.x+'px'; a.style.top=a.y+'px';
+  });
+
+  // Limpeza de mortos e criação de corpos
+  animals = animals.filter(a => {
+    if(a.dead) {
+      const body = document.createElement('div'); body.className='bolinha';
+      body.style.width=a.currentSize+'px'; body.style.height=a.currentSize+'px';
+      body.style.background=a.type==='prey'?'#1e4d63':'#631e1e'; // Cores mais escuras (morto)
+      body.style.left=a.x+'px'; body.style.top=a.y+'px'; body.style.zIndex="2";
+      body.innerHTML='X'; body.style.textAlign='center'; body.style.color='rgba(255,255,255,0.5)';
+      body.style.fontSize=(a.currentSize*0.6)+'px'; body.style.lineHeight=a.currentSize+'px';
+      gameArea.appendChild(body); 
+      deadBodies.push({el:body, born:Date.now()});
+      gameArea.removeChild(a); return false;
+    } return true;
+  });
+
+  // Remover corpos após o novo tempo de BODY_DURATION (60s)
+  deadBodies.forEach((b,i)=>{ 
+    if(now - b.born > BODY_DURATION){ 
+      gameArea.removeChild(b.el); deadBodies.splice(i,1); 
+    } 
+  });
+
+  counterPrey.textContent = `Presas: ${animals.filter(a=>a.type==='prey').length}`;
+  counterPredator.textContent = `Predadores: ${animals.filter(a=>a.type==='predator').length}`;
+  requestAnimationFrame(loop);
+}
+
+document.getElementById('addPrey').onclick=()=>selectType('prey');
+document.getElementById('addPredator').onclick=()=>selectType('predator');
+document.getElementById('addTree').onclick=()=>selectType('tree');
+document.getElementById('infectAnimal').onclick=()=>selectTool('infect');
+
+gameArea.addEventListener('pointerdown',e=>{
+  const r=gameArea.getBoundingClientRect();
+  const x=e.clientX-r.left; const y=e.clientY-r.top;
+  if(selectedTool === 'infect') return;
+  if(selectedType==='tree') createTree(x,y);
+  else if(selectedType) createAnimal(selectedType,x,y,false);
+  selectType(null);
+});
+
+loop();
+</script>
+</body>
+</html>
