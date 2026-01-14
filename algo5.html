@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mercado de Almas: Pro (Com SFX)</title>
+    <style>
+        :root { --red: #ff4d4d; --dark: #0d0d0d; --gold: #ffd700; --panel: #1a1a1a; }
+        body { font-family: 'Cinzel', serif; background: var(--dark); color: #e0e0e0; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        
+        #game-ui { width: 350px; background: var(--panel); border: 2px solid #333; border-radius: 15px; padding: 20px; box-shadow: 0 0 40px rgba(255, 77, 77, 0.2); position: relative; }
+
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; font-size: 0.7rem; text-transform: uppercase; }
+        .stat-box { background: #000; padding: 10px; border-radius: 8px; border: 1px solid #444; text-align: center; }
+        .stat-box b { display: block; font-size: 1.2rem; color: var(--gold); }
+
+        #boss-meter { width: 100%; height: 6px; background: #333; border-radius: 3px; margin: 10px 0; overflow: hidden; }
+        #boss-fill { width: 100%; height: 100%; background: var(--red); box-shadow: 0 0 10px var(--red); transition: 1s cubic-bezier(0.17, 0.67, 0.83, 0.67); }
+
+        #client-card { background: #222; padding: 20px; border-radius: 10px; min-height: 140px; margin-bottom: 20px; border-left: 4px solid var(--red); transition: transform 0.2s; }
+        #client-card.shake { animation: shake 0.4s; }
+        @keyframes shake { 0% {transform:translateX(0)} 25% {transform:translateX(5px)} 50% {transform:translateX(-5px)} 100% {transform:translateX(0)} }
+        
+        .client-name { font-size: 0.8rem; color: #888; margin-bottom: 5px; }
+        .client-wish { font-size: 1.1rem; color: #fff; font-weight: bold; margin-bottom: 10px; }
+        .client-speech { font-style: italic; font-size: 0.9rem; color: #bbb; line-height: 1.4; }
+
+        .slider-wrap { margin-bottom: 20px; text-align: center; }
+        input[type=range] { width: 100%; accent-color: var(--red); cursor: pointer; }
+        .price-display { font-size: 2rem; font-weight: bold; color: var(--red); text-shadow: 0 0 10px rgba(255, 77, 77, 0.5); }
+
+        .actions { display: flex; flex-direction: column; gap: 10px; }
+        .btn { background: #000; border: 1px solid var(--red); color: #fff; padding: 12px; border-radius: 5px; cursor: pointer; font-size: 0.9rem; transition: 0.2s; font-family: inherit; }
+        .btn:hover { background: var(--red); color: #000; font-weight: bold; }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        
+        .btn-special { border-color: var(--gold); color: var(--gold); font-size: 0.7rem; }
+        #history { font-size: 0.7rem; color: #666; margin-top: 15px; height: 30px; text-align: center; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div id="game-ui">
+    <div class="stats-grid">
+        <div class="stat-box">Anos Coletados<b id="val-years">0</b></div>
+        <div class="stat-box">Meta do Dia<b id="val-quota">150</b></div>
+    </div>
+
+    <label style="font-size: 0.6rem; color: #888;">PACIÊNCIA DO LÚCIFER</label>
+    <div id="boss-meter"><div id="boss-fill"></div></div>
+
+    <div id="client-card">
+        <div class="client-name" id="c-name">Carregando...</div>
+        <div class="client-wish" id="c-wish">...</div>
+        <div class="client-speech" id="c-speech">"..."</div>
+    </div>
+
+    <div class="slider-wrap">
+        <div class="price-display"><span id="p-val">30</span><small style="font-size: 0.8rem"> ANOS</small></div>
+        <input type="range" id="price-input" min="5" max="150" value="30" oninput="updatePrice(this.value)">
+    </div>
+
+    <div class="actions">
+        <button class="btn" id="deal-btn" onclick="makeDeal()">FECHAR CONTRATO</button>
+        <button class="btn btn-special" id="power-btn" onclick="usePower()">👁️ LER ALMA (Custa 20 Anos)</button>
+    </div>
+
+    <div id="history">O inferno espera por resultados.</div>
+</div>
+
+<script>
+    // Sistema de Som (AudioContext)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSfx(freq, type = 'sine', duration = 0.1, vol = 0.1) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+
+    let totalYears = 0;
+    let quota = 150;
+    let bossMercy = 100;
+    let currentTolerance = 0;
+    let powerUsed = false;
+
+    const database = [
+        { name: "Empresário Ganancioso", wish: "Monopólio de Petróleo", base: 80, speech: "Quero esmagar a concorrência e ser o dono do mundo!" },
+        { name: "Artista Desesperado", wish: "Uma Obra Prima", base: 40, speech: "Quero ser lembrado para sempre, mesmo que eu sofra agora." },
+        { name: "Pai Aflito", wish: "Cura da Filha", base: 120, speech: "Tira de mim! Tira cada segundo da minha vida, mas salva-a!" },
+        { name: "Político Corrupto", wish: "Imunidade Vitalícia", base: 60, speech: "Preciso que aquelas provas desapareçam ontem!" },
+        { name: "Jovem Influencer", wish: "1 Bilhão de Seguidores", base: 25, speech: "O engajamento caiu... eu faço QUALQUER coisa." }
+    ];
+
+    function updatePrice(v) {
+        document.getElementById('p-val').innerText = v;
+        playSfx(100 + (v * 2), 'sine', 0.05, 0.05); // Som ao deslizar
+    }
+
+    function usePower() {
+        if (totalYears >= 20 && !powerUsed) {
+            totalYears -= 20;
+            powerUsed = true;
+            playSfx(880, 'triangle', 0.2); // Som de poder
+            document.getElementById('val-years').innerText = totalYears;
+            document.getElementById('history').innerText = `A alma deste humano suporta até ${Math.floor(currentTolerance)} anos.`;
+            document.getElementById('power-btn').disabled = true;
+        }
+    }
+
+    function nextClient() {
+        const c = database[Math.floor(Math.random() * database.length)];
+        document.getElementById('c-name').innerText = c.name;
+        document.getElementById('c-wish').innerText = c.wish;
+        document.getElementById('c-speech').innerText = `"${c.speech}"`;
+        currentTolerance = c.base + (Math.random() * 30);
+        powerUsed = false;
+        document.getElementById('power-btn').disabled = false;
+        document.getElementById('deal-btn').disabled = false;
+        
+        const card = document.getElementById('client-card');
+        card.style.transform = "scale(0.9)";
+        setTimeout(() => card.style.transform = "scale(1)", 100);
+        playSfx(300, 'sine', 0.2, 0.05); // Som de novo cliente
+    }
+
+    function makeDeal() {
+        const price = parseInt(document.getElementById('price-input').value);
+        const card = document.getElementById('client-card');
+        document.getElementById('deal-btn').disabled = true;
+
+        if (price <= currentTolerance) {
+            totalYears += price;
+            bossMercy = Math.min(100, bossMercy + (price / 5));
+            document.getElementById('history').innerText = "Contrato selado. Mais uma alma para o abismo.";
+            playSfx(600, 'square', 0.3); // Som de Sucesso
+            if (totalYears >= quota) {
+                quota += 100;
+                setNews("Quota diária atingida!");
+                playSfx(1200, 'triangle', 0.5); // Som de Quota
+            }
+        } else {
+            bossMercy -= 25;
+            card.classList.add('shake');
+            playSfx(150, 'sawtooth', 0.4); // Som de Falha
+            setTimeout(() => card.classList.remove('shake'), 400);
+            document.getElementById('history').innerText = "O humano sentiu o cheiro de enxofre e fugiu!";
+        }
+
+        updateUI();
+        if (bossMercy <= 0) {
+            gameOver();
+        } else {
+            setTimeout(nextClient, 1200);
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('val-years').innerText = totalYears;
+        document.getElementById('val-quota').innerText = quota;
+        document.getElementById('boss-fill').style.width = bossMercy + "%";
+    }
+
+    function gameOver() {
+        playSfx(50, 'sawtooth', 1.0, 0.2);
+        document.body.innerHTML = `<div style="text-align:center">
+            <h1 style="color:red; font-size:3rem">DEMITIDO</h1>
+            <p>O Chefe não tolera incompetência. Coletaste ${totalYears} anos.</p>
+            <button class="btn" onclick="location.reload()">VOLTAR AO INFERNO</button>
+        </div>`;
+    }
+
+    function setNews(m) {
+        document.getElementById('history').innerHTML = `<span style="color:var(--gold)">${m}</span>`;
+    }
+
+    nextClient();
+</script>
+
+</body>
+</html>

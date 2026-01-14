@@ -7,7 +7,7 @@
 <style>
   body {
     margin: 0;
-    font-family: Arial, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -16,6 +16,12 @@
     color: #fff;
     flex-direction: column;
     overflow: hidden;
+    transition: background-color 0.3s;
+  }
+
+  /* Efeito de Flash para o Recorde */
+  body.new-record-flash {
+    background-color: #554400;
   }
 
   #gameArea {
@@ -26,9 +32,9 @@
     max-height: 300px;
     background-color: #333;
     border: 2px solid #fff;
-    margin-bottom: 15px;
-    border-radius: 10px;
-    box-shadow: 0 0 8px #000;
+    margin-bottom: 10px;
+    border-radius: 15px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
   }
 
   #square {
@@ -39,62 +45,68 @@
     max-height: 50px;
     background-color: #ff5722;
     cursor: pointer;
-    transition: all 0.1s;
-    border-radius: 5px;
+    transition: transform 0.1s, background-color 0.2s;
+    border-radius: 8px;
+    box-shadow: 0 4px #bf360c;
   }
 
-  #square.clicked {
-    transform: scale(1.2);
-    background-color: #ff8a50;
+  #square:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px #bf360c;
   }
 
   #score {
-    font-size: 4.5vw;
-    max-font-size: 22px;
+    font-size: 6vw;
     font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+  }
+
+  #highScore {
+    font-size: 4vw;
+    color: #aaa;
+    margin-top: 5px;
+    transition: all 0.3s;
+  }
+
+  /* Animação do Recorde Pulsando */
+  .pulse-gold {
+    color: #ffcc00 !important;
+    transform: scale(1.2);
+    text-shadow: 0 0 10px #ffcc00;
   }
 
   #timer {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    background-color: #00000080;
-    padding: 4px 8px;
-    border-radius: 5px;
-    font-size: 3.5vw;
-    max-font-size: 20px;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(0,0,0,0.6);
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 4.5vw;
+    font-family: monospace;
     font-weight: bold;
-    color: #0f0;
   }
 
   h1 {
-    font-size: 5.5vw;
-    max-font-size: 28px;
-    margin-bottom: 8px;
+    font-size: 7vw;
+    margin-bottom: 15px;
+    color: #ff5722;
   }
 
   #rotateNotice {
     display: none;
     position: absolute;
     top: 0; left: 0;
-    width: 100vw;
-    height: 100vh;
+    width: 100vw; height: 100vh;
     background-color: #222;
-    color: #fff;
-    font-size: 5.5vw;
     text-align: center;
     padding-top: 45vh;
-    box-sizing: border-box;
-    z-index: 10;
+    z-index: 100;
   }
 
   @media screen and (orientation: landscape) {
-    #gameArea, #square, #score, h1, #timer {
-      display: none;
-    }
-    #rotateNotice {
-      display: block;
-    }
+    #gameArea, #square, #score, h1, #timer, #highScore { display: none; }
+    #rotateNotice { display: block; }
   }
 </style>
 </head>
@@ -106,25 +118,29 @@
   <div id="timer">7.0s</div>
 </div>
 <div id="score">Pontos: 0</div>
+<div id="highScore">Recorde: 0</div>
 
-<div id="rotateNotice">Por favor, vire seu celular para retrato</div>
+<div id="rotateNotice">Por favor, use o celular em pé (Retrato)</div>
 
 <script>
 const square = document.getElementById('square');
 const gameArea = document.getElementById('gameArea');
 const scoreDisplay = document.getElementById('score');
+const highScoreDisplay = document.getElementById('highScore');
 const timerDisplay = document.getElementById('timer');
+const body = document.body;
 
-// --- Som embutido base64 ---
 const clickSound = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=");
 
 let score = 0;
-let timeLimit = 7000; // tempo inicial 7s
+let highScore = localStorage.getItem('squareGameHighScore') || 0;
+let timeLimit = 7000; 
 let remainingTime = timeLimit;
 let lastTime = Date.now();
+let isGameOver = false;
+let recordBrokenInSession = false;
 
-// limites para não ficar impossível
-const MIN_TIME_LIMIT = 1500;
+highScoreDisplay.textContent = 'Recorde: ' + highScore;
 
 function moveSquare() {
   const maxX = gameArea.clientWidth - square.clientWidth;
@@ -136,63 +152,89 @@ function moveSquare() {
 }
 
 function resetGame() {
-  alert(`Você perdeu! Pontos finais: ${score}`);
+  isGameOver = true;
+  
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('squareGameHighScore', highScore);
+    highScoreDisplay.textContent = 'Recorde: ' + highScore;
+    alert(`🏆 NOVO RECORDE HISTÓRICO! 🏆\nIncrível! Você atingiu ${score} pontos!`);
+  } else {
+    alert(`Fim de jogo!\nPontos: ${score}\nRecorde: ${highScore}`);
+  }
+
+  // Reset de estados
   score = 0;
+  recordBrokenInSession = false;
   scoreDisplay.textContent = 'Pontos: 0';
+  highScoreDisplay.classList.remove('pulse-gold');
   timeLimit = 7000;
   remainingTime = timeLimit;
+  isGameOver = false;
+  lastTime = Date.now();
   moveSquare();
 }
 
 square.addEventListener('click', () => {
+  if (isGameOver) return;
+
   score++;
   scoreDisplay.textContent = 'Pontos: ' + score;
 
-  // toca o som
+  // Efeito visual se bater o recorde DURANTE a partida
+  if (score > highScore && !recordBrokenInSession && highScore > 0) {
+    recordBrokenInSession = true;
+    triggerRecordEffect();
+  }
+
   clickSound.currentTime = 0;
   clickSound.play();
 
-  square.classList.add('clicked');
-  setTimeout(() => square.classList.remove('clicked'), 150);
-
-  // aumenta dificuldade lentamente
-  timeLimit = Math.max(MIN_TIME_LIMIT, timeLimit - 50);
+  // Aumenta dificuldade gradualmente
+  timeLimit = Math.max(1200, timeLimit - 70);
   remainingTime = timeLimit;
 
   moveSquare();
 });
 
+function triggerRecordEffect() {
+  // Faz o texto do recorde pulsar em dourado
+  highScoreDisplay.classList.add('pulse-gold');
+  
+  // Flash rápido no fundo da tela
+  body.classList.add('new-record-flash');
+  setTimeout(() => {
+    body.classList.remove('new-record-flash');
+  }, 300);
+}
+
 function updateTimerColor() {
   const ratio = remainingTime / timeLimit;
-  if (ratio > 0.6) {
-    timerDisplay.style.color = "#0f0";
-  } else if (ratio > 0.3) {
-    timerDisplay.style.color = "#ff0";
-  } else {
-    timerDisplay.style.color = "#f00";
-  }
+  if (ratio > 0.6) timerDisplay.style.color = "#0f0";
+  else if (ratio > 0.3) timerDisplay.style.color = "#ff0";
+  else timerDisplay.style.color = "#f00";
 }
 
 function gameLoop() {
-  const now = Date.now();
-  const delta = now - lastTime;
-  lastTime = now;
-  remainingTime -= delta;
+  if (!isGameOver) {
+    const now = Date.now();
+    const delta = now - lastTime;
+    lastTime = now;
+    remainingTime -= delta;
 
-  timerDisplay.textContent = (remainingTime / 1000).toFixed(1) + 's';
-  updateTimerColor();
+    timerDisplay.textContent = Math.max(0, (remainingTime / 1000)).toFixed(1) + 's';
+    updateTimerColor();
 
-  if (remainingTime <= 0) {
-    resetGame();
-    remainingTime = timeLimit;
+    if (remainingTime <= 0) {
+      resetGame();
+    }
+  } else {
+    lastTime = Date.now();
   }
-
   requestAnimationFrame(gameLoop);
 }
 
-// inicializa jogo
 moveSquare();
-lastTime = Date.now();
 gameLoop();
 </script>
 
