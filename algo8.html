@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Sarajevo: O Peso da Escolha</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Serif+4:wght@400;500&display=swap');
+
+body{
+    margin:0;
+    font-family:'Source Serif 4', Georgia, serif;
+    background:
+        radial-gradient(circle at top, #111 0%, #050505 65%),
+        linear-gradient(180deg, #070707, #020202);
+    color:#e6e6e6;
+    line-height:1.8;
+}
+
+section{
+    min-height:100vh;
+    padding:70px 24px;
+    max-width:780px;
+    margin:auto;
+    display:none;
+    flex-direction:column;
+    justify-content:center;
+    border-bottom:1px solid #1e1e1e;
+}
+
+section.active{
+    display:flex;
+    animation:fadeUp .8s ease;
+}
+
+@keyframes fadeUp{
+    from{opacity:0; transform:translateY(20px);}
+    to{opacity:1; transform:translateY(0);}
+}
+
+h1,h2,h3{
+    font-family:'Playfair Display', serif;
+    text-transform:uppercase;
+    letter-spacing:3px;
+    margin-bottom:24px;
+    color:#fff;
+}
+
+h1{font-size:2.7rem;}
+h2{font-size:1.95rem;}
+
+p{font-size:1.1rem; margin-bottom:24px;}
+strong{color:#d4a017;}
+.meta{font-style:italic; color:#b5b5b5;}
+
+.choices{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+}
+
+button{
+    padding:16px;
+    background:#111;
+    border:1px solid #2a2a2a;
+    color:#cfcfcf;
+    cursor:pointer;
+    transition:.3s;
+    font-weight:500;
+}
+
+button:hover{
+    background:#f2f2f2;
+    color:#000;
+}
+
+.detalhe-container {
+    background: #151515;
+    border: 1px solid #d4a017;
+    padding: 20px;
+    margin-top: 25px;
+    display: none;
+    animation: fadeIn 0.5s ease;
+    border-radius: 4px;
+}
+
+.detalhe-container h4 {
+    margin: 0 0 10px 0;
+    color: #d4a017;
+    font-family: 'Playfair Display', serif;
+    text-transform: uppercase;
+    font-size: 1.1rem;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.timeline{
+    margin:24px 0;
+    padding-left:16px;
+    border-left:3px solid #d4a017;
+}
+.timeline div{
+    margin-bottom:16px;
+}
+.timeline span{
+    font-weight:bold;
+    color:#d4a017;
+}
+
+ul#vitimasList li {
+    margin-bottom: 8px;
+}
+
+/* Nomes das vítimas em amarelo com fonte Playfair Display */
+#vitimasList a {
+    color: #d4a017;
+    font-family: 'Playfair Display', serif;
+    cursor: pointer;
+    text-decoration: none;
+    transition: 0.2s;
+}
+
+#vitimasList a:hover {
+    color: #fff;
+    background: #d4a017;
+    padding: 2px 4px;
+    border-radius: 2px;
+}
+
+@media (max-width:500px){
+    .choices{
+        grid-template-columns:1fr;
+        gap:12px;
+    }
+    button{
+        padding: 18px;
+        font-size: 1.05rem;
+    }
+}
+
+/* Flash dos tiros */
+.flash-tiro {
+    position: fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    pointer-events: none;
+    animation: flashCor 0.4s ease forwards;
+}
+
+@keyframes flashCor {
+    0% { background: rgba(255,255,255,0.8); }
+    50% { background: rgba(255,255,0,0.6); }
+    100% { background: rgba(255,255,0,0); }
+}
+</style>
+</head>
+
+<body>
+
+<audio id="bgMusic" src="HOI4 TNO  Verify Your Clock  Taboritsky full music - Literally Nothing here.mp3" loop></audio>
+<audio id="shot1" src="tiro1.mp3"></audio>
+<audio id="shot2" src="tiro2.mp3"></audio>
+
+<section id="inicio" class="active">
+<h1>Sarajevo, 1914</h1>
+<p>
+A Bósnia vive sob o domínio do <strong>Império Austro-Húngaro</strong>.
+A visita de Franz Ferdinand ocorre em uma data simbólica para nacionalistas sérvios.
+</p>
+<p>
+Você observa um jovem tenso na multidão, mão dentro do casaco.
+O carro do arquiduque se aproxima lentamente.
+</p>
+
+<div class="choices">
+    <button onclick="go('policia')">Avisar a polícia</button>
+    <button onclick="go('intervir')">Intervir fisicamente</button>
+    <button onclick="go('perguntar')">Falar com o jovem</button>
+    <button onclick="go('hesitar')">Não agir</button>
+    <button onclick="go('gritar_motorista')">Gritar para o motorista</button>
+</div>
+</section>
+
+<section id="gritar_motorista">
+<h2>Gritando para o motorista</h2>
+<p>Você grita alertando o motorista do carro. Ele tenta reagir, mas o tempo é curto. O carro não consegue evitar o atentado.</p>
+<p class="meta">Algumas ações humanas chegam tarde demais.</p>
+<button onclick="go('guerra')">Avançar no tempo</button>
+</section>
+
+<section id="perguntar">
+<h2>Um Homem Antes do Mito</h2>
+<p>Você se aproxima do jovem, Gavrilo Princip, 19 anos. Ele evita o olhar.</p>
+<div class="choices">
+    <button onclick="go('simpatizar')">Simpatizar</button>
+    <button onclick="go('hostilizar')">Hostilizar</button>
+    <button onclick="go('hesitar')">Afastar-se</button>
+</div>
+</section>
+
+<section id="simpatizar">
+<h2>Simpatizando</h2>
+<p>Você tenta mostrar compreensão. Ele continua frio, mas mantém a calma por alguns segundos.</p>
+<p class="meta">Mesmo a empatia não muda seu destino.</p>
+<button onclick="go('hesitar')">Voltar</button>
+</section>
+
+<section id="hostilizar">
+<h2>Hostilizando</h2>
+<p>Você o provoca. A raiva aumenta. Ele dispara mais rapidamente do que teria se você tivesse sido neutro.</p>
+<button onclick="go('guerra')">Avançar no tempo</button>
+</section>
+
+<section id="policia">
+<h2>Autoridade em Pânico</h2>
+<div id="resultadoPolicia"></div>
+<button id="seguirPolicia" style="display:none;" onclick="go('guerra')">Avançar no tempo</button>
+</section>
+
+<section id="hesitar">
+<h2>O Curso Original</h2>
+<p>Você não age. Dois disparos. Duas vidas perdidas. O século começa a sangrar.</p>
+<button onclick="go('guerra')">Avançar no tempo</button>
+</section>
+
+<section id="intervir">
+<h2>Corpo Contra História</h2>
+<div id="resultadoIntervencao"></div>
+
+<div id="vitimasContainer" style="display:none;">
+    <h3>Vítimas atingidas:</h3>
+    <ul id="vitimasList"></ul>
+    
+    <div id="detalheVitima" class="detalhe-container">
+        <h4 id="nomeVitima"></h4>
+        <p id="textoVitima" style="margin-bottom:0; font-style:italic;"></p>
+    </div>
+</div>
+
+<button id="seguirBtn" style="display:none; margin-top:30px;" onclick="go('paz')">Avançar no tempo</button>
+</section>
+
+<section id="paz">
+<h2>A Guerra Evitada</h2>
+<p>O assassinato não ocorre. A guerra mundial imediata é evitada. Mas o império reage com repressão crescente.</p>
+<div class="timeline">
+    <div><span>1915:</span> Protestos reprimidos na Bósnia.</div>
+    <div><span>1916:</span> Campos de trabalho começam a operar.</div>
+    <div><span>1920:</span> Tensão política persiste na Europa Oriental.</div>
+</div>
+<button onclick="go('horror')">Continuar</button>
+</section>
+
+<section id="horror">
+<h2>Um Horror Mais Silencioso</h2>
+<p>Repressão política e desaparecimentos se espalham. Você salvou milhões de mortes diretas, mas criou décadas de terror lento.</p>
+<button onclick="go('estatisticas')">Ver o impacto total</button>
+</section>
+
+<section id="guerra">
+<h2>O Século em Chamas</h2>
+<p>Alianças entram em guerra. Duas guerras mundiais, genocídios e armas nucleares.</p>
+<button onclick="go('estatisticas')">Ver o impacto total</button>
+</section>
+
+<section id="estatisticas">
+<h2>Impacto Total</h2>
+<ul>
+    <li><strong>Assassinato ocorre:</strong> ~100 milhões de mortes (Guerras e epidemias).</li>
+    <li><strong>Assassinato evitado:</strong> ~10 a 20 milhões de mortes por repressão.</li>
+</ul>
+<p class="meta">Suas escolhas nesta simulação foram:</p>
+<ul id="choiceList"></ul>
+<button onclick="location.reload()">Reiniciar Simulação</button>
+</section>
+
+<script>
+const choicesMade = [];
+const music = document.getElementById('bgMusic');
+music.volume = 0.05;
+// Toca música após primeiro clique
+document.body.addEventListener('click', () => {
+    music.play().catch(()=>{});
+}, { once: true });
+
+const choiceTexts = {
+  inicio: "Observou o jovem na multidão",
+  gritar_motorista: "Gritou para o motorista",
+  perguntar: "Falou com Gavrilo Princip",
+  simpatizar: "Simpatizou com Princip",
+  hostilizar: "Hostilizou Princip",
+  hesitar: "Não agiu",
+  policia: "Avisou a polícia",
+  intervir: "Interveio fisicamente",
+  guerra: "Avançou para a guerra",
+  paz: "A guerra foi evitada",
+  horror: "Repressão silenciosa",
+  estatisticas: "Viu estatísticas finais"
+};
+
+function mostrarContexto(nome, historia) {
+    const box = document.getElementById('detalheVitima');
+    document.getElementById('nomeVitima').textContent = nome;
+    document.getElementById('textoVitima').textContent = historia;
+    box.style.display = 'block';
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Som de grito ao clicar na vítima
+    const grito = new Audio('grito.mp3');
+    grito.volume = 0.4;
+    grito.play().catch(()=>{});
+}
+
+function flashTiro() {
+    const flash = document.createElement('div');
+    flash.className = 'flash-tiro';
+    document.body.appendChild(flash);
+    setTimeout(() => document.body.removeChild(flash), 400);
+}
+
+function disparosPrincip() {
+    const tiros = [document.getElementById('shot1'), document.getElementById('shot2')];
+    tiros.forEach((tiro, i) => {
+        setTimeout(() => {
+            tiro.currentTime = 0;
+            tiro.play().catch(()=>{});
+            flashTiro();
+        }, i*1000);
+    });
+}
+
+function disparosMultiplos(numeroTiros) {
+    const tiros = [document.getElementById('shot1'), document.getElementById('shot2')];
+    let tempoAcumulado = 0;
+
+    for(let i = 0; i < numeroTiros; i++) {
+        const delay = 300 + Math.random() * 200;
+        tempoAcumulado += delay;
+
+        setTimeout(() => {
+            const tiro = tiros[i % tiros.length];
+            tiro.currentTime = 0;
+            tiro.play().catch(()=>{});
+            flashTiro();
+        }, tempoAcumulado);
+    }
+}
+    
+
+function intervir() {
+    const resultadoDiv = document.getElementById('resultadoIntervencao');
+    const vitimasContainer = document.getElementById('vitimasContainer');
+    const vitimasList = document.getElementById('vitimasList');
+    const seguirBtn = document.getElementById('seguirBtn');
+    const detalheBox = document.getElementById('detalheVitima');
+
+    detalheBox.style.display = 'none';
+    const chance = Math.random();
+
+    if(chance < 0.55){
+        const vitimas = [
+            {nome: "Lejla Hadžić, 13 anos", historia: "Nunca teve a oportunidade de ir a escola. Passou a vida controlada pelo pai. Morreu imediatamente após um tiro na cabeça, seus pais nunca ficaram sabendo de sua morte."},
+            {nome: "Marko Petrović, 32 anos", historia: "Pai de Tarik Petrović (4 anos). Teve uma vida miserável que só foi consertada com o nascimento de seu filho. Foi baleado na barriga, morto por hemorragia interna poucas horas depois."},
+            {nome: "Amira Kovačević, 28 anos", historia: "Enfermeira que cuidava de crianças e idosos. Foi baleada no braço, conseguiu realizar um auto atendimento."},
+            {nome: "Nikola Jovanović, 38 anos", historia: "Ex-bandido que buscava redenção. Sobreviveu ao incidente."},
+            {nome: "Selma Osmanović, 6 anos", historia: "Estava passeando com seu pai quando foi baleada. Morreu horas depois por hemorragia interna."},
+            {nome: "Dino Radović, 40 anos", historia: "Pai solteiro, tentava sustentar seus filhos. Baleado no pescoço, morreu por asfixia."}
+        ];
+
+        resultadoDiv.innerHTML = `<p>Você impede Princip, salvando o arquiduque. No entanto, 6 pessoas da multidão são atingidas acidentalmente.</p><p><strong>Selecione um nome para ver quem ele era:</strong></p>`;
+        vitimasContainer.style.display = 'block';
+        vitimasList.innerHTML = '';
+
+        vitimas.forEach(v => {
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            a.href = "javascript:void(0)";
+            a.textContent = v.nome;
+            a.onclick = () => mostrarContexto(v.nome, v.historia);
+            li.appendChild(a);
+            vitimasList.appendChild(li);
+        });
+
+        seguirBtn.style.display = 'inline-block';
+        disparosMultiplos(vitimas.length);
+
+    } else {
+        resultadoDiv.innerHTML = `<p>Você impede Princip, mas outro membro da Mão Negra aparece e mata Franz Ferdinand.</p><p>Ninguém da multidão é ferido.</p>`;
+        vitimasContainer.style.display = 'none';
+        seguirBtn.onclick = () => go('guerra'); 
+        seguirBtn.style.display = 'inline-block';
+    }
+}
+
+function eventoPolicia(){
+    const resultado = document.getElementById('resultadoPolicia');
+    const seguirBtn = document.getElementById('seguirPolicia');
+    const chance = Math.random();
+
+    if(chance < 0.3){
+        resultado.innerHTML = `
+        <p>Você tenta alertar a polícia.</p>
+        <p>Eles <strong>ouvem o aviso</strong>, mas estão longe demais para reagir a tempo.</p>
+        <p><strong>Os disparos ecoam antes que qualquer ordem seja dada.</strong></p>
+        <p class="meta">Às vezes, saber não é o mesmo que poder agir.</p>
+        `;
+        disparosPrincip();
+    }
+    else if(chance < 0.6){
+        resultado.innerHTML = `
+        <p>Você alerta os policiais próximos.</p>
+        <p>Eles entendem o perigo, correm…</p>
+        <p><strong>mas o tempo vence.</strong></p>
+        <p class="meta">A história não espera por coordenação.</p>
+        `;
+        disparosPrincip();
+    }
+    else{
+        resultado.innerHTML = `
+        <p>Seu aviso não é ouvido.</p>
+        <p>No entanto, a polícia <strong>presencia o atentado</strong> a poucos metros.</p>
+        <p>O assassino é capturado rapidamente.</p>
+        <p class="meta">Prender o culpado não desfaz o momento.</p>
+        `;
+    }
+
+    seguirBtn.style.display = 'inline-block';
+}
+
+function go(id){
+    choicesMade.push(id);
+    document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.scrollTo({top:0, behavior:'smooth'});
+
+    if(id === 'hesitar' || id === 'hostilizar') disparosPrincip();
+    if(id === 'intervir') intervir();
+    if(id === 'policia') eventoPolicia();
+    
+    // Motorista: chance de falha que dispara tiros
+    if(id === 'gritar_motorista'){
+        const chance = Math.random();
+        if(chance < 0.8){ // 70% falha
+            disparosPrincip();
+        }
+    }
+
+    const choiceList = document.getElementById('choiceList');
+    if(choiceList) choiceList.innerHTML = choicesMade.map(c => `<li>${choiceTexts[c] || c}</li>`).join('');
+}
+</script>
+
+</body>
+</html>7
