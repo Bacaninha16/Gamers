@@ -31,9 +31,12 @@ nav{position:fixed;top:0;width:100%;padding:14px 32px;display:flex;justify-conte
 nav a{color:#fff;text-decoration:none;font-weight:500;margin-left:20px;transition:0.2s;}
 nav a:hover{color:var(--primary);}
 .toggle{background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;}
-header{padding:120px 20px 80px;text-align:center;}
+header{padding:120px 20px 40px;text-align:center;}
 header h1{font-size:3rem;font-weight:700;margin-bottom:14px;}
-main{max-width:1100px;margin:-60px auto 80px;padding:0 24px;}
+main{max-width:1100px;margin:-40px auto 80px;padding:0 24px;}
+.filter-buttons{text-align:center;margin-top:24px;}
+.filter-buttons button{margin:5px 8px;padding:8px 20px;border:none;border-radius:50px;background:var(--primary);color:#fff;cursor:pointer;font-weight:600;transition:0.3s;}
+.filter-buttons button:hover, .filter-buttons button.active{transform:scale(1.05);box-shadow:0 8px 16px rgba(0,0,0,0.2);}
 .games{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px;margin-top:32px;}
 .game{background:var(--card);padding:24px;border-radius:20px;box-shadow:0 10px 20px rgba(0,0,0,0.08);text-align:center;transition:0.3s;}
 .game:hover{transform:translateY(-5px);box-shadow:0 15px 30px rgba(0,0,0,0.15);}
@@ -64,69 +67,89 @@ footer{text-align:center;padding:40px;color:var(--muted);font-size:0.9rem;}
 
 <header>
   <h1>Gamers Fun</h1>
-  <p>Jogos e diversão do grupo GAMERS. Clique para jogar!</p>
+  <p>Jogos e experiências do grupo GAMERS. Clique para jogar ou explorar!</p>
 </header>
 
 <main>
+  <div class="filter-buttons">
+    <button class="active" onclick="filterGames('all')">Todos</button>
+    <button onclick="filterGames('jogo')">Jogos</button>
+    <button onclick="filterGames('experiencia')">Experiências</button>
+    <button onclick="filterGames('site')">Sites Úteis</button>
+  </div>
+
   <div class="games reveal">
-    <!-- Card do jogo do quadrado -->
-    <div class="game">
+    <!-- Jogos -->
+    <div class="game" data-type="jogo">
       <img src="quadrado-game.jpg" alt="Pegue o Quadrado">
       <h3>Pegue o Quadrado</h3>
-      <p>Teste seus reflexos! Clique no quadrado antes que o tempo acabe e veja se consegue bater seu recorde.</p>
+      <p>Teste seus reflexos! Clique no quadrado antes que o tempo acabe.</p>
       <a href="algo1.html" target="_blank">Jogar</a>
     </div>
     
-     <div class="game">
-      <img src="quadrado-game.jpg" alt="Pegue o Quadrado">
-      <h3>Mini ecossistema</h3>
-      <p>Simule um ecossistema virtual complexo.</p>
-      <a href="algo3.html" target="_blank">Jogar</a>
-    </div>
-    <div class="game">
-      <img src="quadrado-game.jpg" alt="Pegue o Quadrado">
-      <h3>Chance de voce nascer</h3>
-      <p>veja a chance de voce nascer.</p>
-      <a href="algo7.html" target="_blank">Jogar</a>
-    </div>
-    <div class="game">
-      <img src="jogosenha.jpg" alt="jogo da senha">
+    <div class="game" data-type="jogo">
+      <img src="jogosenha.jpg" alt="Jogo da senha">
       <h3>Jogo da senha</h3>
       <p>Crie a senha perfeita.</p>
       <a href="algo4.html" target="_blank">Jogar</a>
     </div>
-    
-     <div class="game">
-      <img src="quadrado-game.jpg" alt="Pegue o Quadrado">
-      <h3>Tempo de vida útil </h3>
-      <p>Veja quanto tempo de vida voc ainda tem.</p>
-      <a href="algo2.html" target="_blank">Jogar</a>
-    </div>
-    <div class="game">
-      <img src="Sarajevo.jpg" alt="Sarajevo,1914">
-      <h3>Experimente o efeito borboleta em 1914</h3>
-      <p>Impeça o assasinato de franz ferdinando.</p>
-      <a href="algo8.html" target="_blank">Jogar</a>
-    </div>
-    <div class="game">
-      <img src="quadrado-game.jpg" alt="Pegue o Quadrado">
-      <h3>Demonio de Negócios </h3>
-      <p>negocie o tempo de vida de humanos para satisfazer Lúcifer.</p>
+
+    <div class="game" data-type="jogo">
+      <img src="quadrado-game.jpg" alt="Demonio de Negócios">
+      <h3>Demonio de Negócios</h3>
+      <p>Negocie o tempo de vida de humanos para satisfazer Lúcifer.</p>
       <a href="algo5.html" target="_blank">Jogar</a>
     </div>
-     <div class="game">
-      <img src="quadrado-game.jpg" alt="Pegue o Quadrado">
-      <h3>O mundo sem voce </h3>
-      <p>O jogo mostrará o mundo se voce sumisse.</p>
-      <a href="algo6.html" target="_blank">Jogar</a>
+
+    <!-- Experiências -->
+    <div class="game" data-type="experiencia">
+      <img src="quadrado-game.jpg" alt="Mini ecossistema">
+      <h3>Mini ecossistema</h3>
+      <p>Simule um ecossistema virtual complexo.</p>
+      <a href="algo3.html" target="_blank">Explorar</a>
     </div>
 
+    <div class="game" data-type="experiencia">
+      <img src="Sarajevo.jpg" alt="Experimente o efeito borboleta em 1914">
+      <h3>Efeito Borboleta 1914</h3>
+      <p>Impeça o assassinato de Franz Ferdinand e veja o impacto histórico.</p>
+      <a href="algo8.html" target="_blank">Explorar</a>
+    </div>
 
-    <!-- Você pode adicionar mais cards de jogos aqui -->
-    <div class="game">
-      <img src="https://i.imgur.com/3KqG0nX.png" alt="Jogo Futuro">
+    <div class="game" data-type="experiencia">
+      <img src="quadrado-game.jpg" alt="Tempo de vida útil">
+      <h3>Tempo de vida útil</h3>
+      <p>Veja quanto tempo de vida você ainda tem.</p>
+      <a href="algo2.html" target="_blank">Explorar</a>
+    </div>
+
+    <div class="game" data-type="experiencia">
+      <img src="quadrado-game.jpg" alt="O mundo sem voce">
+      <h3>O mundo sem você</h3>
+      <p>O jogo mostrará o mundo se você desaparecesse.</p>
+      <a href="algo6.html" target="_blank">Explorar</a>
+    </div>
+
+    <!-- Sites Úteis -->
+    <div class="game" data-type="experiencia">
+      <img src="quadrado-game.jpg" alt="Chance de nascer">
+      <h3>Chance de você nascer</h3>
+      <p>Veja a probabilidade de você nascer.</p>
+      <a href="algo7.html" target="_blank">Ver site</a>
+    </div>
+    
+     <div class="game" data-type="site">
+      <img src="quadrado-game.jpg" alt="Atmosfera musical">
+      <h3>Atmosfera musical</h3>
+      <p>Crie uma atmosfera conforme um arquivo de música.</p>
+      <a href="algo10.html" target="_blank">Ver site</a>
+    </div>
+
+    <!-- Em Breve -->
+    <div class="game" data-type="site">
+      <img src="https://i.imgur.com/3KqG0nX.png" alt="Em Breve">
       <h3>Em Breve...</h3>
-      <p>Ainda estamos preparando novos jogos para o GAMERS Fun. Fique de olho!</p>
+      <p>Ainda estamos preparando novos conteúdos. Fique de olho!</p>
       <a href="#">Em breve</a>
     </div>
   </div>
@@ -136,8 +159,26 @@ footer{text-align:center;padding:40px;color:var(--muted);font-size:0.9rem;}
 
 <script>
 function toggleTheme(){document.body.classList.toggle('dark');}
+
+// Scroll reveal
 const els=document.querySelectorAll('.reveal');
 window.addEventListener('scroll',()=>{els.forEach(el=>{if(el.getBoundingClientRect().top<window.innerHeight-80){el.classList.add('active');}});});
+
+// Filtro de categorias
+function filterGames(type){
+  const buttons = document.querySelectorAll('.filter-buttons button');
+  buttons.forEach(btn=>btn.classList.remove('active'));
+  event.target.classList.add('active');
+
+  const games = document.querySelectorAll('.game');
+  games.forEach(game=>{
+    if(type === 'all' || game.dataset.type === type){
+      game.style.display = 'block';
+    } else {
+      game.style.display = 'none';
+    }
+  });
+}
 </script>
 
 </body>
