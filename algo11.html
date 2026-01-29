@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Multiplayer Simples</title>
+
+<style>
+body{
+  margin:0;
+  background:#111;
+  overflow:hidden;
+}
+canvas{
+  display:block;
+  background:#222;
+}
+</style>
+</head>
+
+<body>
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+resize();
+addEventListener("resize", resize);
+
+let nome = prompt("Seu nome:") || "Jogador";
+
+let ws;
+try {
+  ws = new WebSocket("wss://echo.websocket.events");
+} catch {}
+
+let id = Math.random().toString(36).slice(2);
+
+let players = {};
+let player = { x: 200, y: 200, nome };
+players[id] = player;
+
+let keys = {};
+const speed = 4;
+
+addEventListener("keydown", e => keys[e.key] = true);
+addEventListener("keyup", e => keys[e.key] = false);
+
+if (ws) {
+  ws.onmessage = msg => {
+    try {
+      let data = JSON.parse(msg.data);
+      players[data.id] = data;
+    } catch {}
+  };
+}
+
+function move(){
+  if(keys["ArrowUp"]||keys["w"]) player.y -= speed;
+  if(keys["ArrowDown"]||keys["s"]) player.y += speed;
+  if(keys["ArrowLeft"]||keys["a"]) player.x -= speed;
+  if(keys["ArrowRight"]||keys["d"]) player.x += speed;
+
+  if(ws && ws.readyState === 1){
+    ws.send(JSON.stringify({
+      id,
+      x: player.x,
+      y: player.y,
+      nome: player.nome
+    }));
+  }
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  for(let pid in players){
+    let p = players[pid];
+
+    ctx.fillStyle = pid === id ? "lime" : "red";
+    ctx.fillRect(p.x, p.y, 30, 30);
+
+    ctx.fillStyle = "white";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(p.nome, p.x + 15, p.y - 5);
+  }
+}
+
+function loop(){
+  move();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
