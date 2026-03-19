@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRIBUNAL</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap');
+
+  :root {
+    --ink: #1a1209;
+    --parchment: #f0e8d5;
+    --aged: #d4c4a0;
+    --blood: #8b1a1a;
+    --gold: #c9a84c;
+    --shadow: #2d1f0e;
+    --stamp-red: #a02020;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--ink);
+    color: var(--parchment);
+    font-family: 'Courier Prime', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* SCANLINES */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* ── LOBBY ── */
+  #lobby {
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background:
+      radial-gradient(ellipse at 50% 0%, #3d2608 0%, transparent 60%),
+      var(--ink);
+  }
+
+  .tribunal-header {
+    text-align: center;
+    margin-bottom: 50px;
+  }
+
+  .gavel-icon {
+    font-size: 60px;
+    display: block;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 0 20px rgba(201,168,76,0.4));
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0) rotate(-5deg); }
+    50% { transform: translateY(-8px) rotate(5deg); }
+  }
+
+  h1.title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(48px, 10vw, 96px);
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    color: var(--parchment);
+    text-shadow: 0 0 40px rgba(201,168,76,0.3), 3px 3px 0 var(--blood);
+    line-height: 1;
+  }
+
+  h1.title span { color: var(--gold); }
+
+  .subtitle {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    color: var(--aged);
+    font-size: 14px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  .divider {
+    width: 200px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 20px auto;
+  }
+
+  .lobby-form {
+    background: rgba(240,232,213,0.04);
+    border: 1px solid rgba(201,168,76,0.2);
+    padding: 36px;
+    width: 100%;
+    max-width: 440px;
+  }
+
+  .form-label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 8px;
+    margin-top: 20px;
+  }
+
+  .form-label:first-child { margin-top: 0; }
+
+  input[type=text], select {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(201,168,76,0.3);
+    color: var(--parchment);
+    font-family: 'Courier Prime', monospace;
+    font-size: 16px;
+    padding: 12px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type=text]:focus, select:focus {
+    border-color: var(--gold);
+  }
+
+  select option { background: #1a1209; }
+
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    margin-top: 28px;
+    background: var(--blood);
+    border: none;
+    color: var(--parchment);
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.2s, transform 0.1s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.05);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .btn:hover { background: #a02020; }
+  .btn:hover::after { opacity: 1; }
+  .btn:active { transform: scale(0.98); }
+
+  .btn.secondary {
+    background: transparent;
+    border: 1px solid rgba(201,168,76,0.4);
+    color: var(--gold);
+    font-size: 14px;
+    margin-top: 12px;
+  }
+
+  .btn.secondary:hover { background: rgba(201,168,76,0.1); }
+
+  .players-list {
+    margin-top: 28px;
+    border-top: 1px solid rgba(201,168,76,0.15);
+    padding-top: 20px;
+  }
+
+  .players-list-title {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .player-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 14px;
+  }
+
+  .role-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .role-badge.suspect { background: var(--blood); color: var(--parchment); }
+  .role-badge.accuser { background: #1a3a5c; color: #a8c8e8; }
+  .role-badge.judge { background: #2a1f00; color: var(--gold); border: 1px solid var(--gold); }
+
+  /* ── BRIEFING ── */
+  #briefing {
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background:
+      radial-gradient(ellipse at 50% 50%, #1f0a0a 0%, var(--ink) 70%);
+  }
+
+  .brief-box {
+    max-width: 600px;
+    width: 100%;
+  }
+
+  .brief-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(201,168,76,0.2);
+  }
+
+  .brief-role-tag {
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+  }
+
+  .classified-stamp {
+    display: inline-block;
+    border: 3px solid var(--stamp-red);
+    color: var(--stamp-red);
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 28px;
+    letter-spacing: 0.2em;
+    padding: 4px 16px;
+    transform: rotate(-8deg);
+    opacity: 0.85;
+    margin-bottom: 20px;
+  }
+
+  .brief-content {
+    background: rgba(240,232,213,0.04);
+    border: 1px solid rgba(201,168,76,0.15);
+    padding: 28px;
+    line-height: 1.8;
+    font-size: 15px;
+    color: var(--parchment);
+    white-space: pre-wrap;
+  }
+
+  .brief-content .highlight {
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  .innocent-notice {
+    background: rgba(0,80,0,0.2);
+    border: 1px solid rgba(100,200,100,0.3);
+    color: #90ee90;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+  }
+
+  textarea.context-input {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(201,168,76,0.3);
+    color: var(--parchment);
+    font-family: 'Courier Prime', monospace;
+    font-size: 14px;
+    padding: 14px;
+    resize: vertical;
+    min-height: 120px;
+    outline: none;
+    line-height: 1.7;
+    margin-top: 8px;
+  }
+
+  textarea.context-input:focus { border-color: var(--gold); }
+
+  /* ── COURTROOM ── */
+  #courtroom {
+    flex-direction: column;
+    background:
+      radial-gradient(ellipse at 50% 0%, #220d00 0%, var(--ink) 50%);
+  }
+
+  .court-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 28px;
+    border-bottom: 1px solid rgba(201,168,76,0.2);
+    background: rgba(0,0,0,0.4);
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .court-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+  }
+
+  .round-indicator {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--aged);
+    text-transform: uppercase;
+  }
+
+  .court-players {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .court-player {
+    font-size: 12px;
+    padding: 4px 10px;
+    border: 1px solid rgba(201,168,76,0.2);
+    letter-spacing: 0.1em;
+  }
+
+  .court-player.you { border-color: var(--gold); color: var(--gold); }
+
+  .court-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    flex-direction: column;
+  }
+
+  @media (min-width: 768px) {
+    .court-main { flex-direction: row; }
+  }
+
+  /* Chat/transcript */
+  .transcript {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .msg {
+    max-width: 85%;
+    animation: msgIn 0.3s ease;
+  }
+
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.system { max-width: 100%; }
+  .msg.judge { align-self: center; text-align: center; max-width: 90%; }
+  .msg.accuser { align-self: flex-start; }
+  .msg.suspect { align-self: flex-end; }
+
+  .msg-header {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    color: var(--aged);
+  }
+
+  .msg.accuser .msg-header { color: #7aadd0; }
+  .msg.suspect .msg-header { color: #d07a7a; }
+  .msg.judge .msg-header { color: var(--gold); }
+
+  .msg-body {
+    background: rgba(240,232,213,0.05);
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 12px 16px;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .msg.accuser .msg-body { border-left: 3px solid #1a3a5c; }
+  .msg.suspect .msg-body { border-right: 3px solid var(--blood); }
+  .msg.judge .msg-body {
+    border: 1px solid rgba(201,168,76,0.25);
+    background: rgba(201,168,76,0.05);
+    font-style: italic;
+    color: #e8d8a0;
+  }
+
+  .msg.system .msg-body {
+    border: none;
+    background: rgba(255,255,255,0.03);
+    color: var(--aged);
+    font-size: 12px;
+    text-align: center;
+    font-style: italic;
+    border-top: 1px solid rgba(201,168,76,0.1);
+    border-bottom: 1px solid rgba(201,168,76,0.1);
+  }
+
+  /* Evidence card */
+  .evidence-card {
+    background: rgba(139,26,26,0.1);
+    border: 1px solid rgba(139,26,26,0.4);
+    padding: 16px 18px;
+    max-width: 100%;
+    animation: evidenceIn 0.6s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .evidence-card::before {
+    content: 'PROVA';
+    position: absolute;
+    top: 8px; right: 12px;
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--blood);
+    opacity: 0.6;
+  }
+
+  @keyframes evidenceIn {
+    0% { opacity: 0; transform: scale(0.95) rotate(-1deg); }
+    60% { transform: scale(1.01) rotate(0.3deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0); }
+  }
+
+  .evidence-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    color: #e88080;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+
+  .evidence-text { font-size: 13px; line-height: 1.7; color: var(--parchment); }
+
+  /* Sidebar */
+  .sidebar {
+    width: 100%;
+    border-top: 1px solid rgba(201,168,76,0.15);
+    background: rgba(0,0,0,0.3);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  @media (min-width: 768px) {
+    .sidebar {
+      width: 260px;
+      border-top: none;
+      border-left: 1px solid rgba(201,168,76,0.15);
+      overflow-y: auto;
+    }
+  }
+
+  .sidebar-section-title {
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(201,168,76,0.1);
+  }
+
+  .case-summary {
+    font-size: 12px;
+    color: var(--aged);
+    line-height: 1.7;
+  }
+
+  .evidence-log {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .evidence-mini {
+    background: rgba(139,26,26,0.1);
+    border: 1px solid rgba(139,26,26,0.2);
+    padding: 8px 10px;
+    font-size: 11px;
+    color: #c08080;
+    line-height: 1.5;
+  }
+
+  .phase-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .phase-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--aged);
+  }
+
+  .phase-dot.active { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+  .phase-dot.done { background: rgba(201,168,76,0.3); }
+
+  .phase-label { font-size: 11px; color: var(--aged); }
+  .phase-label.active { color: var(--gold); }
+
+  /* Input area */
+  .input-area {
+    padding: 16px 24px;
+    border-top: 1px solid rgba(201,168,76,0.1);
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .input-area textarea {
+    flex: 1;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(201,168,76,0.25);
+    color: var(--parchment);
+    font-family: 'Courier Prime', monospace;
+    font-size: 14px;
+    padding: 10px 14px;
+    resize: none;
+    height: 48px;
+    outline: none;
+    transition: border-color 0.2s, height 0.2s;
+    line-height: 1.5;
+  }
+
+  .input-area textarea:focus { border-color: var(--gold); height: 80px; }
+
+  .send-btn {
+    background: var(--blood);
+    border: none;
+    color: var(--parchment);
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 0 20px;
+    height: 48px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .send-btn:hover { background: #a02020; }
+  .send-btn:disabled { background: #3a2020; cursor: not-allowed; opacity: 0.5; }
+
+  .input-hint {
+    font-size: 11px;
+    color: var(--aged);
+    opacity: 0.6;
+    text-align: center;
+    padding: 4px 0;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── VERDICT ── */
+  #verdict-screen {
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background:
+      radial-gradient(ellipse at 50% 50%, #1a0a00 0%, var(--ink) 60%);
+  }
+
+  .verdict-box {
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .verdict-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(36px, 8vw, 72px);
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    margin: 24px 0;
+    animation: verdictReveal 1s ease both;
+  }
+
+  @keyframes verdictReveal {
+    0% { opacity: 0; transform: scale(1.3); filter: blur(10px); }
+    100% { opacity: 1; transform: scale(1); filter: blur(0); }
+  }
+
+  .verdict-title.guilty { color: var(--blood); text-shadow: 0 0 40px rgba(139,26,26,0.5); }
+  .verdict-title.innocent { color: #90ee90; text-shadow: 0 0 40px rgba(144,238,144,0.3); }
+
+  .verdict-reasoning {
+    background: rgba(240,232,213,0.04);
+    border: 1px solid rgba(201,168,76,0.15);
+    padding: 24px;
+    font-size: 15px;
+    line-height: 1.8;
+    text-align: left;
+    color: var(--parchment);
+    margin-bottom: 28px;
+    font-style: italic;
+  }
+
+  .truth-reveal {
+    background: rgba(201,168,76,0.08);
+    border: 1px solid rgba(201,168,76,0.3);
+    padding: 20px;
+    margin-bottom: 24px;
+    font-size: 13px;
+    color: var(--gold);
+    line-height: 1.7;
+  }
+
+  .truth-reveal strong { color: var(--parchment); display: block; margin-bottom: 8px; font-size: 14px; }
+
+  /* LOADING */
+  .loading-dots {
+    display: inline-block;
+    font-family: 'Courier Prime', monospace;
+    color: var(--aged);
+    font-size: 13px;
+  }
+
+  .loading-dots::after {
+    content: '';
+    animation: dots 1.4s steps(4, end) infinite;
+  }
+
+  @keyframes dots {
+    0%   { content: ''; }
+    25%  { content: '.'; }
+    50%  { content: '..'; }
+    75%  { content: '...'; }
+  }
+
+  /* Waiting overlay */
+  .wait-msg {
+    text-align: center;
+    color: var(--aged);
+    font-style: italic;
+    font-size: 13px;
+    padding: 8px 0;
+  }
+
+  .typing-indicator {
+    display: none;
+    gap: 4px;
+    padding: 8px 16px;
+  }
+
+  .typing-indicator.active { display: flex; align-items: center; }
+
+  .typing-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--aged);
+    animation: typing 1.2s ease-in-out infinite;
+  }
+
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typing {
+    0%,80%,100% { transform: scale(0.7); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  /* misc */
+  .text-muted { color: var(--aged); }
+  .text-gold { color: var(--gold); }
+  .text-blood { color: var(--blood); }
+  .mt-4 { margin-top: 16px; }
+  .center { text-align: center; }
+
+  .gavel-strike {
+    animation: gavelStrike 0.5s ease;
+  }
+
+  @keyframes gavelStrike {
+    0% { transform: rotate(-45deg) translateY(-20px); }
+    60% { transform: rotate(0deg) translateY(0); }
+    100% { transform: rotate(-5deg) translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════ LOBBY ══ -->
+<div id="lobby" class="screen active">
+  <div class="tribunal-header">
+    <span class="gavel-icon">⚖️</span>
+    <h1 class="title">TRIBU<span>N</span>AL</h1>
+    <p class="subtitle">Julgamento em tempo real</p>
+    <div class="divider"></div>
+  </div>
+
+  <div class="lobby-form">
+    <label class="form-label">Seu nome</label>
+    <input type="text" id="playerName" placeholder="Ex: Dr. Marcelo" maxlength="24">
+
+    <label class="form-label" id="roomLabel">Código da sala</label>
+    <input type="text" id="roomCode" placeholder="Ex: CASO001" maxlength="10" style="text-transform:uppercase">
+
+    <button class="btn" onclick="joinLobby()">Entrar no Tribunal</button>
+    <button class="btn secondary" onclick="createRoom()">Criar Nova Sala</button>
+
+    <div class="players-list" id="playersList" style="display:none">
+      <div class="players-list-title">Presentes na sala</div>
+      <div id="playersItems"></div>
+      <button class="btn" id="startBtn" style="display:none; margin-top:20px" onclick="startGame()">⚖️ Iniciar Julgamento</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ BRIEFING ══ -->
+<div id="briefing" class="screen">
+  <div class="brief-box">
+    <div class="brief-header">
+      <span class="brief-role-tag role-badge" id="briefRoleTag">—</span>
+      <span style="font-family:'Playfair Display',serif; font-size:20px; font-weight:700">Sua Instrução Confidencial</span>
+    </div>
+    <div id="briefContent"></div>
+    <button class="btn" style="margin-top:28px" onclick="readyUp()">Estou Pronto — Iniciar Tribunal</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ COURTROOM ══ -->
+<div id="courtroom" class="screen">
+  <div class="court-header">
+    <div>
+      <div class="court-title">⚖️ TRIBUNAL EM SESSÃO</div>
+      <div class="round-indicator" id="phaseLabel">Fase de Interrogatório</div>
+    </div>
+    <div class="court-players" id="courtPlayers"></div>
+  </div>
+
+  <div class="court-main">
+    <div style="display:flex; flex-direction:column; flex:1; overflow:hidden">
+      <div class="transcript" id="transcript"></div>
+      <div class="typing-indicator" id="typingIndicator">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <span style="margin-left:8px; font-size:12px; color:var(--aged)">Juiz deliberando<span class="loading-dots"></span></span>
+      </div>
+      <div class="input-area" id="inputArea" style="display:none">
+        <div style="flex:1; display:flex; flex-direction:column; gap:4px">
+          <textarea id="msgInput" placeholder="Sua fala no tribunal..." onkeydown="handleKey(event)"></textarea>
+          <div class="input-hint" id="inputHint">↵ enviar</div>
+        </div>
+        <button class="send-btn" onclick="sendMessage()" id="sendBtn">Falar</button>
+      </div>
+      <div class="input-area" id="waitArea" style="display:none">
+        <div class="wait-msg" style="width:100%">⏳ Aguardando <span id="waitingFor">—</span> falar...</div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="sidebar-section-title">O Caso</div>
+      <div class="case-summary" id="caseSummary">—</div>
+
+      <div style="margin-top:16px">
+        <div class="sidebar-section-title">Fases</div>
+        <div style="display:flex; flex-direction:column; gap:8px" id="phaseList">
+          <div class="phase-indicator"><div class="phase-dot active" id="p1dot"></div><div class="phase-label active" id="p1label">Abertura</div></div>
+          <div class="phase-indicator"><div class="phase-dot" id="p2dot"></div><div class="phase-label" id="p2label">Interrogatório</div></div>
+          <div class="phase-indicator"><div class="phase-dot" id="p3dot"></div><div class="phase-label" id="p3label">Provas</div></div>
+          <div class="phase-indicator"><div class="phase-dot" id="p4dot"></div><div class="phase-label" id="p4label">Alegações Finais</div></div>
+          <div class="phase-indicator"><div class="phase-dot" id="p5dot"></div><div class="phase-label" id="p5label">Veredito</div></div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px" id="evidenceSidebarWrap" style="display:none">
+        <div class="sidebar-section-title">Provas Coletadas</div>
+        <div class="evidence-log" id="evidenceLog">
+          <div style="font-size:11px; color:var(--aged); font-style:italic">Nenhuma prova ainda...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ VERDICT ══ -->
+<div id="verdict-screen" class="screen">
+  <div class="verdict-box">
+    <div class="divider"></div>
+    <div style="font-family:'Playfair Display',serif; font-size:13px; letter-spacing:0.3em; text-transform:uppercase; color:var(--aged)">Veredito Final</div>
+    <div class="verdict-title" id="verdictTitle">—</div>
+    <div class="verdict-reasoning" id="verdictReasoning">—</div>
+    <div class="truth-reveal" id="truthReveal" style="display:none"></div>
+    <div class="divider"></div>
+    <button class="btn" onclick="location.reload()" style="margin-top:24px">↩ Novo Julgamento</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, update, onValue, push, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBLnHOe4FAYOOilvVr-SG7Tj7U4lXB71Xk",
+  authDomain: "claude-44569.firebaseapp.com",
+  databaseURL: "https://claude-44569-default-rtdb.firebaseio.com",
+  projectId: "claude-44569",
+  storageBucket: "claude-44569.firebasestorage.app",
+  messagingSenderId: "828934018371",
+  appId: "1:828934018371:web:5c81abac916236ebea0bf6"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// Expose functions to window for onclick handlers
+window.joinLobby = joinLobby;
+window.createRoom = createRoom;
+window.startGame = startGame;
+window.readyUp = readyUp;
+window.sendMessage = sendMessage;
+window.handleKey = handleKey;
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+const API = "https://api.anthropic.com/v1/messages";
+const MODEL = "claude-sonnet-4-20250514";
+
+let G = {
+  room: null,
+  myName: '',
+  myRole: '',        // suspect | accuser | judge
+  players: [],       // [{name, role}]
+  caseData: null,    // {crime, method, time, location, motive, isInnocent, guilt_desc}
+  accuserContext: '', // what accuser typed
+  transcript: [],    // [{role, name, content, type}]
+  evidences: [],     // strings
+  phase: 'opening',  // opening | interrogation | evidence | closing | verdict
+  round: 0,
+  maxRounds: 4,      // interrogation rounds before closing
+  myTurn: false,
+  judgeIsBot: true,
+  ready: { suspect: false, accuser: false, judge: false }
+};
+
+// ═══════════════════════════════════════════════════
+// LOBBY
+// ═══════════════════════════════════════════════════
+function genCode() {
+  return Math.random().toString(36).slice(2,7).toUpperCase();
+}
+
+function createRoom() {
+  const code = genCode();
+  document.getElementById('roomCode').value = code;
+  joinLobby();
+}
+
+async function joinLobby() {
+  const name = document.getElementById('playerName').value.trim();
+  const room = document.getElementById('roomCode').value.trim().toUpperCase();
+
+  if (!name) { alert('Digite seu nome!'); return; }
+  if (!room) { alert('Digite o código da sala!'); return; }
+
+  G.myName = name;
+  G.room = room;
+
+  const roomRef = ref(db, `rooms/${room}`);
+  const snap = await get(roomRef);
+  const data = snap.val() || { players: {}, gameStarted: false };
+
+  // Add player (keyed by name)
+  data.players = data.players || {};
+  data.players[name] = { name, role: null, joinedAt: Date.now() };
+  await set(roomRef, data);
+
+  renderLobby();
+  listenRoom();
+}
+
+let _roomListener = null;
+
+function listenRoom() {
+  if (_roomListener) off(ref(db, `rooms/${G.room}`), 'value', _roomListener);
+
+  _roomListener = onValue(ref(db, `rooms/${G.room}`), snap => {
+    const data = snap.val();
+    if (!data) return;
+
+    const playersObj = data.players || {};
+    G.players = Object.values(playersObj).sort((a,b) => a.joinedAt - b.joinedAt);
+
+    if (data.gameStarted) {
+      off(ref(db, `rooms/${G.room}`), 'value', _roomListener);
+      G.caseData = data.caseData;
+      G.accuserContext = data.accuserContext || '';
+      const me = G.players.find(p => p.name === G.myName);
+      G.myRole = me ? me.role : 'suspect';
+      G.judgeIsBot = !G.players.find(p => p.role === 'judge');
+      // If verdict already posted (late joiner), show it
+      if (data.verdict) { showVerdictScreen(data.verdict); return; }
+      showBriefing();
+      return;
+    }
+
+    renderLobby();
+  });
+}
+
+function renderLobby() {
+  const wrap = document.getElementById('playersList');
+  wrap.style.display = 'block';
+  const items = document.getElementById('playersItems');
+
+  items.innerHTML = G.players.map(p =>
+    `<div class="player-item">
+      <span>${p.name}${p.name === G.myName ? ' <span style="color:var(--gold);font-size:10px">(você)</span>' : ''}</span>
+      <span style="font-size:11px;color:var(--aged)">aguardando...</span>
+    </div>`
+  ).join('');
+
+  // Remove stale waiting msg
+  const old = document.getElementById('waitingStart');
+  if (old) old.remove();
+
+  const startBtn = document.getElementById('startBtn');
+  if (G.players.length >= 2 && G.players[0].name === G.myName) {
+    startBtn.style.display = 'block';
+    startBtn.textContent = `⚖️ Iniciar com ${G.players.length} jogador${G.players.length > 1 ? 'es' : ''}`;
+  } else {
+    startBtn.style.display = 'none';
+    const w = document.createElement('div');
+    w.id = 'waitingStart';
+    w.style.cssText = 'color:var(--aged);font-size:12px;text-align:center;margin-top:16px;font-style:italic';
+    w.textContent = G.players.length < 2
+      ? '⏳ Aguardando outros jogadores entrarem...'
+      : '⏳ Aguardando o primeiro jogador iniciar...';
+    wrap.appendChild(w);
+  }
+}
+
+async function startGame() {
+  const btn = document.getElementById('startBtn');
+  btn.textContent = 'Sorteando papéis e gerando o caso...';
+  btn.disabled = true;
+
+  // Assign roles
+  const shuffled = [...G.players].sort(() => Math.random() - 0.5);
+  const roles = G.players.length >= 3
+    ? ['suspect', 'accuser', 'judge', ...Array(G.players.length - 3).fill('accuser')]
+    : ['suspect', 'accuser'];
+  shuffled.forEach((p, i) => { p.role = roles[i] || 'accuser'; });
+
+  // Map back to original order
+  const assignedPlayers = G.players.map(p => ({
+    ...p,
+    role: shuffled.find(s => s.name === p.name).role
+  }));
+
+  G.myRole = assignedPlayers.find(p => p.name === G.myName)?.role || 'accuser';
+  G.players = assignedPlayers;
+
+  // Build players object for Firebase
+  const playersObj = {};
+  assignedPlayers.forEach(p => { playersObj[p.name] = p; });
+
+  // Generate case
+  const caseData = await generateCase();
+  G.caseData = caseData;
+  G.judgeIsBot = !assignedPlayers.find(p => p.role === 'judge');
+
+  await update(ref(db, `rooms/${G.room}`), {
+    players: playersObj,
+    caseData,
+    gameStarted: true,
+    accuserContext: ''
+  });
+
+  showBriefing();
+}
+
+// ═══════════════════════════════════════════════════
+// CASE GENERATION
+// ═══════════════════════════════════════════════════
+async function generateCase() {
+  const isInnocent = Math.random() < 0.3; // 30% chance innocent
+
+  const prompt = `Você é um gerador de casos criminais para um jogo de tribunal.
+Crie um caso criminal ${isInnocent ? 'onde o SUSPEITO É INOCENTE' : 'onde o suspeito É CULPADO'}.
+
+Responda APENAS em JSON válido, sem markdown. Estrutura:
+{
+  "victim": "nome da vítima",
+  "crime": "tipo do crime (ex: assassinato, fraude, roubo)",
+  "location": "local do crime",
+  "time": "quando aconteceu",
+  "method": "como foi feito (detalhes que só o culpado saberia)",
+  "motive": "motivo",
+  "isInnocent": ${isInnocent},
+  "suspectStory": "o que o suspeito deve dizer — se culpado: a verdade completa com detalhes íntimos. Se inocente: onde estava, o que fez, com quem.",
+  "realKiller": ${isInnocent ? '"nome e breve descrição do verdadeiro culpado"' : 'null'},
+  "accuserClues": "por que alguém suspeitaria desse suspeito (comportamento suspeito, motivo aparente, sem álibi claro)"
+}`;
+
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  const data = await res.json();
+  const raw = data.content[0].text.replace(/```json|```/g, '').trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // fallback
+    return {
+      victim: "Carlos Mendonça",
+      crime: "assassinato",
+      location: "Hotel Bragança, quarto 412",
+      time: "sexta-feira, 23h47",
+      method: "envenenamento com cianeto no whisky do frigobar",
+      motive: "herança disputada",
+      isInnocent: false,
+      suspectStory: "Eu estava no quarto de Carlos. Coloquei o cianeto no whisky às 23h30. Ele bebeu sem saber. Eu sai antes de 0h.",
+      realKiller: null,
+      accuserClues: "Suspeito foi visto saindo do hotel às meia-noite. Há registros de ligações hostis entre os dois."
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// BRIEFING
+// ═══════════════════════════════════════════════════
+function showBriefing() {
+  showScreen('briefing');
+  const tag = document.getElementById('briefRoleTag');
+  const content = document.getElementById('briefContent');
+
+  if (G.myRole === 'suspect') {
+    tag.textContent = 'Suspeito';
+    tag.className = 'brief-role-tag role-badge suspect';
+
+    const c = G.caseData;
+    if (c.isInnocent) {
+      content.innerHTML = `
+        <div class="innocent-notice">✅ VOCÊ É INOCENTE. Não cometeu este crime. Mantenha sua história e resista às acusações.</div>
+        <div class="classified-stamp">INOCENTE</div>
+        <div class="brief-content">
+<span class="highlight">O que aconteceu:</span> Houve um crime. Você está sendo acusado, mas não fez nada.
+
+<span class="highlight">Na hora do crime (${c.time}):</span>
+${c.suspectStory}
+
+<span class="highlight">⚠️ Sua missão:</span> Defenda seu álibi. Seja consistente. Qualquer contradição será usada contra você.
+
+Você NÃO sabe os detalhes do crime — só sabe onde estava.
+        </div>`;
+    } else {
+      content.innerHTML = `
+        <div class="classified-stamp">CULPADO</div>
+        <div class="brief-content">
+<span class="highlight">O que você fez:</span> ${c.crime} de ${c.victim}
+
+<span class="highlight">Onde:</span> ${c.location}
+
+<span class="highlight">Quando:</span> ${c.time}
+
+<span class="highlight">Como:</span> ${c.method}
+
+<span class="highlight">Motivo:</span> ${c.motive}
+
+<span class="highlight">Sua estratégia:</span>
+${c.suspectStory}
+
+⚠️ Memorize cada detalhe. Não se contradiga. Negue tudo.
+        </div>`;
+    }
+
+  } else if (G.myRole === 'accuser') {
+    tag.textContent = 'Acusador';
+    tag.className = 'brief-role-tag role-badge accuser';
+
+    const c = G.caseData;
+    content.innerHTML = `
+      <div class="brief-content">
+<span class="highlight">O Crime:</span> ${c.crime} de ${c.victim}
+
+<span class="highlight">Por que suspeita desta pessoa?</span>
+${c.accuserClues}
+
+<span class="highlight">⚠️ IMPORTANTE:</span> Você NÃO sabe se o suspeito é culpado ou inocente. Descubra através do tribunal.
+
+Receberá PROVAS ao longo do julgamento.
+      </div>
+      <label class="form-label" style="margin-top:20px">Qual é o seu argumento inicial? Por que você acusa esta pessoa?</label>
+      <textarea class="context-input" id="accuserContext" placeholder="Ex: Encontrei o nome dele na agenda da vítima. Ele tinha motivo e oportunidade..."></textarea>`;
+
+  } else if (G.myRole === 'judge') {
+    tag.textContent = 'Juiz';
+    tag.className = 'brief-role-tag role-badge judge';
+
+    content.innerHTML = `
+      <div class="brief-content">
+<span class="highlight">Seu papel:</span> Você é o Juiz deste tribunal.
+
+Você conduz o julgamento. Após cada rodada de perguntas e respostas, você faz observações, controla o fluxo e ao final dá o <span class="highlight">VEREDITO</span>.
+
+Observe tudo atentamente. Contradições, hesitações, excesso de detalhes ou falta deles — tudo importa.
+
+O tribunal começa quando todos estiverem prontos.
+      </div>`;
+  }
+}
+
+function readyUp() {
+  if (G.myRole === 'accuser') {
+    const ctx = document.getElementById('accuserContext');
+    if (ctx && ctx.value.trim()) {
+      G.accuserContext = ctx.value.trim();
+      update(ref(db, `rooms/${G.room}`), { accuserContext: G.accuserContext });
+    }
+  }
+  showScreen('courtroom');
+  initCourtroom();
+}
+
+// ═══════════════════════════════════════════════════
+// COURTROOM
+// ═══════════════════════════════════════════════════
+function initCourtroom() {
+  const cp = document.getElementById('courtPlayers');
+  cp.innerHTML = G.players.map(p =>
+    `<div class="court-player ${p.name === G.myName ? 'you' : ''}">${p.name}${p.name === G.myName ? ' (você)' : ''}</div>`
+  ).join('');
+
+  const c = G.caseData;
+  document.getElementById('caseSummary').textContent =
+    `Crime: ${c.crime}\nVítima: ${c.victim}\nLocal: ${c.location}\nHorário: ${c.time}`;
+
+  listenMessages();
+  listenGameState();
+
+  // Only the accuser (or first real player) triggers the opening
+  if (G.myRole === 'accuser' || (G.judgeIsBot && G.myRole === 'judge') ||
+      (!G.players.find(p=>p.role==='accuser') && G.myRole === 'suspect')) {
+    openingStatement();
+  } else {
+    setTurn('wait');
+  }
+}
+
+async function openingStatement() {
+  showTyping(true);
+  G.phase = 'opening';
+  updatePhaseUI();
+
+  const c = G.caseData;
+  const accuserCtx = G.accuserContext || 'O acusador alega que o suspeito é o responsável pelo crime.';
+
+  const prompt = `Você é o Juiz de um tribunal moderno, formal e intimidador.
+Faça a abertura do julgamento do crime: ${c.crime} contra ${c.victim}, no ${c.location}.
+O acusador argumenta: "${accuserCtx}"
+Seja formal, sério, conciso (máx 4 frases). Não use asteriscos ou markdown.`;
+
+  const reply = await callAI(prompt);
+  showTyping(false);
+
+  const judgeName = G.judgeIsBot ? 'Juiz' : G.players.find(p=>p.role==='judge')?.name || 'Juiz';
+  await pushMsg('judge', judgeName, reply);
+
+  setTimeout(() => startInterrogation(), 1000);
+}
+
+async function startInterrogation() {
+  G.phase = 'interrogation';
+  G.round = 0;
+  updatePhaseUI();
+
+  await pushMsg('system', '', '— INÍCIO DO INTERROGATÓRIO —');
+  await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'accuser', round: 0, phase: 'interrogation' });
+}
+
+function setTurn(role) {
+  if (role === 'wait') {
+    document.getElementById('inputArea').style.display = 'none';
+    document.getElementById('waitArea').style.display = 'flex';
+    document.getElementById('waitingFor').textContent = '...';
+    return;
+  }
+
+  const isMe = G.myRole === role;
+  document.getElementById('inputArea').style.display = isMe ? 'flex' : 'none';
+  document.getElementById('waitArea').style.display = isMe ? 'none' : 'flex';
+
+  if (!isMe) {
+    const roleName = role === 'accuser' ? 'Acusador' : role === 'suspect' ? 'Suspeito' : 'Juiz';
+    document.getElementById('waitingFor').textContent = roleName;
+    return;
+  }
+
+  const hints = {
+    accuser: 'Faça sua pergunta ou declaração',
+    suspect: 'Responda ao acusador',
+    judge: 'Faça sua observação como Juiz'
+  };
+  document.getElementById('inputHint').textContent = hints[role] || '';
+  document.getElementById('msgInput').placeholder =
+    role === 'accuser' ? 'Faça uma pergunta ao suspeito...' :
+    role === 'suspect' ? 'Responda ou declare sua inocência...' :
+    'Sua palavra como Juiz...';
+  document.getElementById('msgInput').focus();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+async function sendMessage() {
+  const input = document.getElementById('msgInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  document.getElementById('inputArea').style.display = 'none';
+
+  // Write to Firebase
+  await pushMsg(G.myRole, G.myName, text);
+  G.transcript.push({ role: G.myRole, name: G.myName, content: text });
+
+  if (G.myRole === 'accuser') {
+    if (G.phase === 'closing') {
+      // After accuser closing, check if suspect is real player
+      const suspectIsReal = G.players.find(p => p.role === 'suspect' && p.name !== G.myName);
+      if (suspectIsReal) {
+        await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'closing_suspect' });
+        setTurn('wait');
+      } else {
+        await botSuspectClosing(text);
+      }
+      return;
+    }
+    const suspectIsReal = G.players.find(p => p.role === 'suspect' && p.name !== G.myName);
+    if (suspectIsReal) {
+      await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'suspect', round: G.round });
+      setTurn('wait');
+    } else {
+      await botSuspectReply(text);
+    }
+  } else if (G.myRole === 'suspect') {
+    G.round++;
+    if (G.phase === 'closing') {
+      await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'verdict' });
+    } else {
+      await afterExchange();
+    }
+  } else if (G.myRole === 'judge') {
+    G.round++;
+    await afterExchange();
+  }
+}
+
+async function pushMsg(role, name, content, type='msg') {
+  const msgRef = push(ref(db, `rooms/${G.room}/messages`));
+  await set(msgRef, { role, name, content, type, ts: Date.now() });
+}
+
+let _lastMsgCount = 0;
+function listenMessages() {
+  onValue(ref(db, `rooms/${G.room}/messages`), snap => {
+    const msgs = snap.val();
+    if (!msgs) return;
+    const all = Object.values(msgs).sort((a,b) => a.ts - b.ts);
+    // Render only new ones
+    if (all.length > _lastMsgCount) {
+      all.slice(_lastMsgCount).forEach(m => {
+        if (m.type === 'evidence') {
+          try { showEvidence(JSON.parse(m.content)); } catch { showEvidence({title:'Prova', desc: m.content}); }
+        } else {
+          addMessage(m.role, m.name, m.content);
+        }
+        G.transcript.push({ role: m.role, name: m.name, content: m.content });
+      });
+      _lastMsgCount = all.length;
+    }
+  });
+}
+
+function listenGameState() {
+  onValue(ref(db, `rooms/${G.room}/gameState`), snap => {
+    const state = snap.val();
+    if (!state) return;
+    G.round = state.round ?? G.round;
+    if (state.phase) {
+      G.phase = state.phase;
+      updatePhaseUI();
+    }
+    const turn = state.currentTurn;
+    if (!turn) return;
+
+    if (turn === 'verdict') {
+      // Only the accuser (who runs bots) generates verdict; others wait for room verdict
+      if (G.myRole === 'accuser' || (G.judgeIsBot && G.myRole === 'suspect')) {
+        generateVerdict();
+      }
+      return;
+    }
+
+    if (turn === 'closing_accuser') {
+      G.phase = 'closing';
+      updatePhaseUI();
+      if (G.myRole === 'accuser') setTurn('accuser');
+      else setTurn('wait');
+      return;
+    }
+
+    if (turn === 'closing_suspect') {
+      if (G.myRole === 'suspect') setTurn('suspect');
+      else setTurn('wait');
+      return;
+    }
+
+    if (turn === G.myRole) setTurn(G.myRole);
+    else setTurn('wait');
+  });
+}
+
+async function botSuspectClosing(accuserClosing) {
+  showTyping(true);
+  const c = G.caseData;
+  const prompt = `Você é o suspeito num tribunal. Fase final: alegações.
+${c.isInnocent ? 'Você é INOCENTE.' : 'Você é CULPADO mas nega tudo.'}
+O acusador disse em suas alegações finais: "${accuserClosing}"
+Faça sua declaração final. Seja dramático, emocional, convincente. Máx 4 frases. Sem markdown.`;
+
+  const reply = await callAI(prompt);
+  showTyping(false);
+  const sName = G.players.find(p=>p.role==='suspect')?.name || 'Suspeito';
+  await pushMsg('suspect', sName, reply);
+  G.transcript.push({ role: 'suspect', name: sName, content: reply });
+  await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'verdict' });
+}
+
+async function botSuspectReply(accuserMsg) {
+  showTyping(true);
+  const c = G.caseData;
+  const history = G.transcript.slice(-6).map(t => `${t.name}: ${t.content}`).join('\n');
+
+  const prompt = `Você é ${G.players.find(p=>p.role==='suspect')?.name || 'o suspeito'} num tribunal.
+${c.isInnocent ? 'Você é INOCENTE. Você não cometeu o crime.' : 'Você é CULPADO mas não vai confessar.'}
+Sua história: ${c.suspectStory}
+Histórico: ${history}
+Acusador disse: "${accuserMsg}"
+Responda de forma humana, com nervosismo plausível. Máx 3 frases. Sem markdown.`;
+
+  const reply = await callAI(prompt);
+  showTyping(false);
+
+  const sName = G.players.find(p=>p.role==='suspect')?.name || 'Suspeito';
+  await pushMsg('suspect', sName, reply);
+  G.transcript.push({ role: 'suspect', name: sName, content: reply });
+  G.round++;
+  await afterExchange();
+}
+
+async function afterExchange() {
+  if (G.round >= 2 && G.round % 2 === 0 && G.evidences.length < 3) {
+    await generateEvidence();
+  }
+
+  if (G.round % 2 === 0 && G.judgeIsBot) {
+    await botJudgeComment();
+  }
+
+  if (G.round >= G.maxRounds) {
+    setTimeout(() => startClosing(), 800);
+    return;
+  }
+
+  await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'accuser', round: G.round });
+}
+
+async function botJudgeComment() {
+  if (!G.judgeIsBot) return;
+  showTyping(true);
+  const history = G.transcript.slice(-4).map(t => `${t.name}: ${t.content}`).join('\n');
+
+  const prompt = `Você é um Juiz de tribunal severo e observador.
+Fase: ${G.phase}. Turno: ${G.round}.
+Últimas falas: ${history}
+Faça um comentário breve (1-2 frases) como Juiz. Sem markdown.`;
+
+  const reply = await callAI(prompt);
+  showTyping(false);
+  await pushMsg('judge', 'Juiz', reply);
+
+  if (G.phase === 'closing') await generateVerdict();
+}
+
+async function generateEvidence() {
+  const c = G.caseData;
+  const n = G.evidences.length + 1;
+
+  const prompt = `Gere uma prova forense/investigativa para o julgamento de ${c.crime} de ${c.victim}.
+O suspeito ${c.isInnocent ? 'É INOCENTE' : 'é culpado'}.
+Prova nº ${n}: deve ser ${c.isInnocent ? 'ambígua ou favorável ao suspeito' : n === 1 ? 'suspeita mas não conclusiva' : 'incriminadora'}.
+Responda em JSON: {"title":"...","desc":"..."}`;
+
+  const res = await callAI(prompt);
+  try {
+    const clean = res.replace(/```json|```/g,'').trim();
+    const ev = JSON.parse(clean);
+    G.evidences.push(ev);
+    // Push evidence as special message to Firebase so all players see it
+    await pushMsg('system', '', JSON.stringify(ev), 'evidence');
+  } catch {
+    const ev = { title: `Evidência #${n}`, desc: res.slice(0, 120) };
+    G.evidences.push(ev);
+    await pushMsg('system', '', JSON.stringify(ev), 'evidence');
+  }
+}
+
+async function startClosing() {
+  G.phase = 'closing';
+  updatePhaseUI();
+  await pushMsg('system', '', '— ALEGAÇÕES FINAIS —');
+
+  if (G.judgeIsBot) {
+    await pushMsg('judge', 'Juiz', 'Passamos às alegações finais. Acusador, apresente sua conclusão.');
+  }
+
+  await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'closing_accuser', phase: 'closing' });
+}
+
+function startClosingLocal() {
+  G.phase = 'closing';
+  updatePhaseUI();
+  setTurn('accuser');
+}
+
+function showEvidence(ev) {
+  const div = document.createElement('div');
+  div.className = 'msg system';
+  div.innerHTML = `<div class="evidence-card">
+    <div class="evidence-title">🔎 ${ev.title}</div>
+    <div class="evidence-text">${ev.desc}</div>
+  </div>`;
+  document.getElementById('transcript').appendChild(div);
+  scrollTranscript();
+
+  const log = document.getElementById('evidenceLog');
+  const placeholder = log.querySelector('div[style*="italic"]');
+  if (placeholder) log.innerHTML = '';
+  const mini = document.createElement('div');
+  mini.className = 'evidence-mini';
+  mini.textContent = ev.title + ': ' + ev.desc;
+  log.appendChild(mini);
+}
+
+async function generateVerdict() {
+  if (G._verdictGenerating) return;
+  G._verdictGenerating = true;
+
+  G.phase = 'verdict';
+  updatePhaseUI();
+  showTyping(true);
+
+  const c = G.caseData;
+  const transcript = G.transcript.map(t => `${t.name} (${t.role}): ${t.content}`).join('\n');
+  const evidencesSummary = G.evidences.map(e => e.title + ': ' + e.desc).join('\n');
+
+  const prompt = `Você é um Juiz dando o veredito final de um tribunal.
+Crime: ${c.crime} de ${c.victim}.
+O suspeito ${c.isInnocent ? 'É INOCENTE (mas você não sabe disso — julgue pelo tribunal)' : 'é culpado'}.
+Transcrição: ${transcript}
+Provas: ${evidencesSummary}
+Dê um veredito: CULPADO ou INOCENTE, com fundamentação em 3-5 frases. Seja dramático e formal.
+Responda em JSON: {"verdict":"CULPADO" ou "INOCENTE","reasoning":"..."}`;
+
+  const res = await callAI(prompt);
+  showTyping(false);
+
+  let verdict = { verdict: 'CULPADO', reasoning: res };
+  try {
+    verdict = JSON.parse(res.replace(/```json|```/g,'').trim());
+  } catch {}
+
+  // Save verdict to Firebase so all see it
+  await update(ref(db, `rooms/${G.room}`), { verdict });
+  showVerdictScreen(verdict);
+}
+
+function showVerdictScreen(v) {
+  showScreen('verdict-screen');
+
+  const title = document.getElementById('verdictTitle');
+  const reasoning = document.getElementById('verdictReasoning');
+  const truth = document.getElementById('truthReveal');
+
+  title.textContent = v.verdict;
+  title.className = 'verdict-title ' + (v.verdict === 'CULPADO' ? 'guilty' : 'innocent');
+  reasoning.textContent = v.reasoning;
+
+  // Reveal the truth
+  const c = G.caseData;
+  truth.style.display = 'block';
+  truth.innerHTML = `<strong>⚖️ A Verdade (revelação pós-julgamento)</strong>
+O suspeito era <strong>${c.isInnocent ? 'INOCENTE' : 'CULPADO'}</strong>.
+${c.isInnocent ? `O verdadeiro culpado: ${c.realKiller || 'não identificado'}. ` : ''}
+Crime: ${c.method}. Motivo: ${c.motive}.
+${v.verdict !== (c.isInnocent ? 'INOCENTE' : 'CULPADO') ? '❌ O tribunal errou o julgamento.' : '✅ A justiça foi feita.'}`;
+}
+
+// ═══════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════
+function addMessage(role, name, content) {
+  const transcript = document.getElementById('transcript');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = `
+    <div class="msg-header">${name}${role === 'judge' ? ' ⚖️' : ''}</div>
+    <div class="msg-body">${content}</div>`;
+  transcript.appendChild(div);
+  scrollTranscript();
+}
+
+function scrollTranscript() {
+  const t = document.getElementById('transcript');
+  setTimeout(() => t.scrollTop = t.scrollHeight, 50);
+}
+
+function showTyping(show) {
+  document.getElementById('typingIndicator').className = 'typing-indicator' + (show ? ' active' : '');
+  if (show) scrollTranscript();
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function updatePhaseUI() {
+  const phases = ['opening','interrogation','evidence','closing','verdict'];
+  const labels = ['Abertura','Interrogatório','Provas','Alegações Finais','Veredito'];
+  const current = ['opening','interrogation','interrogation','closing','verdict'].indexOf(G.phase);
+
+  phases.forEach((p, i) => {
+    const dot = document.getElementById(`p${i+1}dot`);
+    const label = document.getElementById(`p${i+1}label`);
+    if (!dot) return;
+    const idx = phases.indexOf(G.phase);
+    if (i < idx) { dot.className = 'phase-dot done'; label.className = 'phase-label'; }
+    else if (i === idx) { dot.className = 'phase-dot active'; label.className = 'phase-label active'; }
+    else { dot.className = 'phase-dot'; label.className = 'phase-label'; }
+  });
+
+  const phaseLabel = document.getElementById('phaseLabel');
+  const map = { opening:'Abertura', interrogation:'Interrogatório', closing:'Alegações Finais', verdict:'Veredito' };
+  if (phaseLabel) phaseLabel.textContent = map[G.phase] || G.phase;
+}
+
+// ═══════════════════════════════════════════════════
+// AI CALL
+// ═══════════════════════════════════════════════════
+async function callAI(prompt) {
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    return data.content?.[0]?.text || '...';
+  } catch {
+    return '(erro de conexão)';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+// Cleanup old rooms on load
+window.addEventListener('load', () => {
+  // Nothing needed
+});
+</script>
+</body>
+</html>
