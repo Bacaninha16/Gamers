@@ -817,11 +817,15 @@
   </div>
 </div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, get, update, onValue, push, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+<!-- Firebase compat -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-const firebaseConfig = {
+<script>
+// ═══════════════════════════════════════════════════
+// FIREBASE INIT
+// ═══════════════════════════════════════════════════
+firebase.initializeApp({
   apiKey: "AIzaSyBLnHOe4FAYOOilvVr-SG7Tj7U4lXB71Xk",
   authDomain: "claude-44569.firebaseapp.com",
   databaseURL: "https://claude-44569-default-rtdb.firebaseio.com",
@@ -829,40 +833,33 @@ const firebaseConfig = {
   storageBucket: "claude-44569.firebasestorage.app",
   messagingSenderId: "828934018371",
   appId: "1:828934018371:web:5c81abac916236ebea0bf6"
-};
+});
+const db = firebase.database();
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-// Expose functions to window for onclick handlers
-window.joinLobby = joinLobby;
-window.createRoom = createRoom;
-window.startGame = startGame;
-window.readyUp = readyUp;
-window.sendMessage = sendMessage;
-window.handleKey = handleKey;
+// ═══════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════
+const API   = "https://api.anthropic.com/v1/messages";
+const MODEL = "claude-sonnet-4-20250514";
 
 // ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
-const API = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
-
 let G = {
   room: null,
   myName: '',
-  myRole: '',        // suspect | accuser | judge
-  players: [],       // [{name, role}]
-  caseData: null,    // {crime, method, time, location, motive, isInnocent, guilt_desc}
-  accuserContext: '', // what accuser typed
-  transcript: [],    // [{role, name, content, type}]
-  evidences: [],     // strings
-  phase: 'opening',  // opening | interrogation | evidence | closing | verdict
+  myRole: '',
+  players: [],
+  caseData: null,
+  accuserContext: '',
+  transcript: [],
+  evidences: [],
+  phase: 'opening',
   round: 0,
-  maxRounds: 4,      // interrogation rounds before closing
-  myTurn: false,
+  maxRounds: 4,
   judgeIsBot: true,
-  ready: { suspect: false, accuser: false, judge: false }
+  seenMsgCount: 0,
+  verdictDone: false
 };
 
 // ═══════════════════════════════════════════════════
@@ -873,185 +870,147 @@ function genCode() {
 }
 
 function createRoom() {
-  const code = genCode();
-  document.getElementById('roomCode').value = code;
+  const name = document.getElementById('playerName').value.trim();
+  if (!name) { alert('Digite seu nome primeiro!'); return; }
+  document.getElementById('roomCode').value = genCode();
   joinLobby();
 }
 
 async function joinLobby() {
   const name = document.getElementById('playerName').value.trim();
   const room = document.getElementById('roomCode').value.trim().toUpperCase();
-
   if (!name) { alert('Digite seu nome!'); return; }
   if (!room) { alert('Digite o código da sala!'); return; }
 
   G.myName = name;
-  G.room = room;
+  G.room   = room;
 
-  const roomRef = ref(db, `rooms/${room}`);
-  const snap = await get(roomRef);
-  const data = snap.val() || { players: {}, gameStarted: false };
+  // Add player to Firebase
+  await db.ref(`rooms/${room}/players/${name}`).set({ name, joinedAt: Date.now() });
 
-  // Add player (keyed by name)
-  data.players = data.players || {};
-  data.players[name] = { name, role: null, joinedAt: Date.now() };
-  await set(roomRef, data);
-
-  renderLobby();
-  listenRoom();
+  showScreen('lobby');
+  document.getElementById('playersList').style.display = 'block';
+  listenLobby();
 }
 
-let _roomListener = null;
-
-function listenRoom() {
-  if (_roomListener) off(ref(db, `rooms/${G.room}`), 'value', _roomListener);
-
-  _roomListener = onValue(ref(db, `rooms/${G.room}`), snap => {
+function listenLobby() {
+  db.ref(`rooms/${G.room}`).on('value', snap => {
     const data = snap.val();
     if (!data) return;
 
-    const playersObj = data.players || {};
-    G.players = Object.values(playersObj).sort((a,b) => a.joinedAt - b.joinedAt);
-
-    if (data.gameStarted) {
-      off(ref(db, `rooms/${G.room}`), 'value', _roomListener);
-      G.caseData = data.caseData;
+    // If game started, go to briefing
+    if (data.gameStarted && data.caseData) {
+      db.ref(`rooms/${G.room}`).off();
+      G.caseData       = data.caseData;
       G.accuserContext = data.accuserContext || '';
-      const me = G.players.find(p => p.name === G.myName);
-      G.myRole = me ? me.role : 'suspect';
-      G.judgeIsBot = !G.players.find(p => p.role === 'judge');
-      // If verdict already posted (late joiner), show it
-      if (data.verdict) { showVerdictScreen(data.verdict); return; }
+      G.players        = Object.values(data.players || {}).sort((a,b) => a.joinedAt - b.joinedAt);
+      const me         = G.players.find(p => p.name === G.myName);
+      G.myRole         = me ? me.role : 'accuser';
+      G.judgeIsBot     = !G.players.find(p => p.role === 'judge');
       showBriefing();
       return;
     }
 
-    renderLobby();
+    // Render player list
+    const players = Object.values(data.players || {}).sort((a,b) => a.joinedAt - b.joinedAt);
+    G.players = players;
+
+    const items = document.getElementById('playersItems');
+    items.innerHTML = players.map(p =>
+      `<div class="player-item">
+        <span>${p.name}${p.name === G.myName ? ' <span style="color:var(--gold);font-size:10px">(você)</span>' : ''}</span>
+        <span style="font-size:11px;color:var(--aged)">na sala</span>
+      </div>`
+    ).join('');
+
+    const startBtn = document.getElementById('startBtn');
+    const isFirst  = players[0] && players[0].name === G.myName;
+    if (players.length >= 2 && isFirst) {
+      startBtn.style.display = 'block';
+      startBtn.textContent   = `⚖️ Iniciar com ${players.length} jogador${players.length > 1 ? 'es' : ''}`;
+    } else {
+      startBtn.style.display = 'none';
+    }
+
+    // Waiting message
+    let wait = document.getElementById('waitMsg');
+    if (!wait) {
+      wait = document.createElement('div');
+      wait.id = 'waitMsg';
+      wait.style.cssText = 'color:var(--aged);font-size:12px;text-align:center;margin-top:12px;font-style:italic';
+      document.getElementById('playersList').appendChild(wait);
+    }
+    if (players.length < 2) {
+      wait.textContent = '⏳ Aguardando mais jogadores...';
+    } else if (!isFirst) {
+      wait.textContent = '⏳ Aguardando o primeiro jogador iniciar...';
+    } else {
+      wait.textContent = '';
+    }
   });
-}
-
-function renderLobby() {
-  const wrap = document.getElementById('playersList');
-  wrap.style.display = 'block';
-  const items = document.getElementById('playersItems');
-
-  items.innerHTML = G.players.map(p =>
-    `<div class="player-item">
-      <span>${p.name}${p.name === G.myName ? ' <span style="color:var(--gold);font-size:10px">(você)</span>' : ''}</span>
-      <span style="font-size:11px;color:var(--aged)">aguardando...</span>
-    </div>`
-  ).join('');
-
-  // Remove stale waiting msg
-  const old = document.getElementById('waitingStart');
-  if (old) old.remove();
-
-  const startBtn = document.getElementById('startBtn');
-  if (G.players.length >= 2 && G.players[0].name === G.myName) {
-    startBtn.style.display = 'block';
-    startBtn.textContent = `⚖️ Iniciar com ${G.players.length} jogador${G.players.length > 1 ? 'es' : ''}`;
-  } else {
-    startBtn.style.display = 'none';
-    const w = document.createElement('div');
-    w.id = 'waitingStart';
-    w.style.cssText = 'color:var(--aged);font-size:12px;text-align:center;margin-top:16px;font-style:italic';
-    w.textContent = G.players.length < 2
-      ? '⏳ Aguardando outros jogadores entrarem...'
-      : '⏳ Aguardando o primeiro jogador iniciar...';
-    wrap.appendChild(w);
-  }
 }
 
 async function startGame() {
   const btn = document.getElementById('startBtn');
-  btn.textContent = 'Sorteando papéis e gerando o caso...';
-  btn.disabled = true;
+  btn.disabled    = true;
+  btn.textContent = 'Gerando o caso...';
 
-  // Assign roles
+  // Assign roles randomly
   const shuffled = [...G.players].sort(() => Math.random() - 0.5);
-  const roles = G.players.length >= 3
-    ? ['suspect', 'accuser', 'judge', ...Array(G.players.length - 3).fill('accuser')]
-    : ['suspect', 'accuser'];
+  const roles    = ['suspect', 'accuser'];
+  if (G.players.length >= 3) roles.push('judge');
   shuffled.forEach((p, i) => { p.role = roles[i] || 'accuser'; });
 
-  // Map back to original order
-  const assignedPlayers = G.players.map(p => ({
-    ...p,
-    role: shuffled.find(s => s.name === p.name).role
-  }));
-
-  G.myRole = assignedPlayers.find(p => p.name === G.myName)?.role || 'accuser';
-  G.players = assignedPlayers;
-
-  // Build players object for Firebase
+  // Write roles back
   const playersObj = {};
-  assignedPlayers.forEach(p => { playersObj[p.name] = p; });
+  shuffled.forEach(p => { playersObj[p.name] = p; });
 
   // Generate case
   const caseData = await generateCase();
-  G.caseData = caseData;
-  G.judgeIsBot = !assignedPlayers.find(p => p.role === 'judge');
 
-  await update(ref(db, `rooms/${G.room}`), {
-    players: playersObj,
+  await db.ref(`rooms/${G.room}`).update({
+    players:     playersObj,
     caseData,
     gameStarted: true,
     accuserContext: ''
   });
-
-  showBriefing();
+  // listenLobby will fire and take everyone to briefing
 }
 
 // ═══════════════════════════════════════════════════
 // CASE GENERATION
 // ═══════════════════════════════════════════════════
 async function generateCase() {
-  const isInnocent = Math.random() < 0.3; // 30% chance innocent
-
+  const isInnocent = Math.random() < 0.3;
   const prompt = `Você é um gerador de casos criminais para um jogo de tribunal.
-Crie um caso criminal ${isInnocent ? 'onde o SUSPEITO É INOCENTE' : 'onde o suspeito É CULPADO'}.
-
-Responda APENAS em JSON válido, sem markdown. Estrutura:
+Crie um caso ${isInnocent ? 'onde o SUSPEITO É INOCENTE' : 'onde o suspeito É CULPADO'}.
+Responda APENAS em JSON válido sem markdown:
 {
   "victim": "nome da vítima",
-  "crime": "tipo do crime (ex: assassinato, fraude, roubo)",
-  "location": "local do crime",
+  "crime": "tipo do crime",
+  "location": "local",
   "time": "quando aconteceu",
-  "method": "como foi feito (detalhes que só o culpado saberia)",
+  "method": "como foi feito",
   "motive": "motivo",
   "isInnocent": ${isInnocent},
-  "suspectStory": "o que o suspeito deve dizer — se culpado: a verdade completa com detalhes íntimos. Se inocente: onde estava, o que fez, com quem.",
-  "realKiller": ${isInnocent ? '"nome e breve descrição do verdadeiro culpado"' : 'null'},
-  "accuserClues": "por que alguém suspeitaria desse suspeito (comportamento suspeito, motivo aparente, sem álibi claro)"
+  "suspectStory": "${isInnocent ? 'alibi detalhado: onde estava, com quem, o que fazia na hora do crime' : 'a verdade completa com detalhes que só o culpado saberia'}",
+  "realKiller": ${isInnocent ? '"nome e descrição do verdadeiro culpado"' : 'null'},
+  "accuserClues": "pistas superficiais que levaram à suspeita desta pessoa"
 }`;
 
-  const res = await fetch(API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1000,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-
-  const data = await res.json();
-  const raw = data.content[0].text.replace(/```json|```/g, '').trim();
+  const res  = await callAI(prompt);
+  const clean = res.replace(/```json|```/g,'').trim();
   try {
-    return JSON.parse(raw);
+    return JSON.parse(clean);
   } catch {
-    // fallback
     return {
-      victim: "Carlos Mendonça",
-      crime: "assassinato",
-      location: "Hotel Bragança, quarto 412",
-      time: "sexta-feira, 23h47",
-      method: "envenenamento com cianeto no whisky do frigobar",
-      motive: "herança disputada",
+      victim: "Carlos Mendonça", crime: "assassinato",
+      location: "Hotel Bragança, quarto 412", time: "sexta-feira, 23h47",
+      method: "envenenamento com cianeto no whisky", motive: "herança disputada",
       isInnocent: false,
-      suspectStory: "Eu estava no quarto de Carlos. Coloquei o cianeto no whisky às 23h30. Ele bebeu sem saber. Eu sai antes de 0h.",
+      suspectStory: "Eu estava no quarto de Carlos. Coloquei o cianeto no whisky às 23h30 e saí antes de meia-noite.",
       realKiller: null,
-      accuserClues: "Suspeito foi visto saindo do hotel às meia-noite. Há registros de ligações hostis entre os dois."
+      accuserClues: "Suspeito foi visto saindo do hotel. Havia brigas recentes e motivo financeiro."
     };
   }
 }
@@ -1061,27 +1020,25 @@ Responda APENAS em JSON válido, sem markdown. Estrutura:
 // ═══════════════════════════════════════════════════
 function showBriefing() {
   showScreen('briefing');
-  const tag = document.getElementById('briefRoleTag');
+  const tag     = document.getElementById('briefRoleTag');
   const content = document.getElementById('briefContent');
+  const c       = G.caseData;
 
   if (G.myRole === 'suspect') {
     tag.textContent = 'Suspeito';
-    tag.className = 'brief-role-tag role-badge suspect';
+    tag.className   = 'brief-role-tag role-badge suspect';
 
-    const c = G.caseData;
     if (c.isInnocent) {
       content.innerHTML = `
-        <div class="innocent-notice">✅ VOCÊ É INOCENTE. Não cometeu este crime. Mantenha sua história e resista às acusações.</div>
+        <div class="innocent-notice">✅ VOCÊ É INOCENTE. Não cometeu este crime.</div>
         <div class="classified-stamp">INOCENTE</div>
         <div class="brief-content">
-<span class="highlight">O que aconteceu:</span> Houve um crime. Você está sendo acusado, mas não fez nada.
+<span class="highlight">Situação:</span> Você está sendo acusado de ${c.crime}, mas não fez nada.
 
-<span class="highlight">Na hora do crime (${c.time}):</span>
+<span class="highlight">Na hora do crime (${c.time}) você estava:</span>
 ${c.suspectStory}
 
-<span class="highlight">⚠️ Sua missão:</span> Defenda seu álibi. Seja consistente. Qualquer contradição será usada contra você.
-
-Você NÃO sabe os detalhes do crime — só sabe onde estava.
+<span class="highlight">⚠️ Missão:</span> Defenda seu álibi. Seja consistente. Você NÃO conhece os detalhes do crime.
         </div>`;
     } else {
       content.innerHTML = `
@@ -1090,62 +1047,52 @@ Você NÃO sabe os detalhes do crime — só sabe onde estava.
 <span class="highlight">O que você fez:</span> ${c.crime} de ${c.victim}
 
 <span class="highlight">Onde:</span> ${c.location}
-
 <span class="highlight">Quando:</span> ${c.time}
-
 <span class="highlight">Como:</span> ${c.method}
-
 <span class="highlight">Motivo:</span> ${c.motive}
 
 <span class="highlight">Sua estratégia:</span>
 ${c.suspectStory}
 
-⚠️ Memorize cada detalhe. Não se contradiga. Negue tudo.
+⚠️ Memorize tudo. Não se contradiga. Negue tudo.
         </div>`;
     }
 
   } else if (G.myRole === 'accuser') {
     tag.textContent = 'Acusador';
-    tag.className = 'brief-role-tag role-badge accuser';
-
-    const c = G.caseData;
+    tag.className   = 'brief-role-tag role-badge accuser';
     content.innerHTML = `
       <div class="brief-content">
 <span class="highlight">O Crime:</span> ${c.crime} de ${c.victim}
 
-<span class="highlight">Por que suspeita desta pessoa?</span>
+<span class="highlight">Por que essa pessoa é suspeita:</span>
 ${c.accuserClues}
 
-<span class="highlight">⚠️ IMPORTANTE:</span> Você NÃO sabe se o suspeito é culpado ou inocente. Descubra através do tribunal.
-
-Receberá PROVAS ao longo do julgamento.
+<span class="highlight">⚠️ IMPORTANTE:</span> Você NÃO sabe se o suspeito é culpado ou inocente. Descubra no tribunal. Receberá provas ao longo do julgamento.
       </div>
-      <label class="form-label" style="margin-top:20px">Qual é o seu argumento inicial? Por que você acusa esta pessoa?</label>
-      <textarea class="context-input" id="accuserContext" placeholder="Ex: Encontrei o nome dele na agenda da vítima. Ele tinha motivo e oportunidade..."></textarea>`;
+      <label class="form-label" style="margin-top:20px">Seu argumento inicial — por que você acusa esta pessoa?</label>
+      <textarea class="context-input" id="accuserContextInput" placeholder="Ex: Vi ele saindo do local. Ele tinha motivo e oportunidade..."></textarea>`;
 
-  } else if (G.myRole === 'judge') {
+  } else {
     tag.textContent = 'Juiz';
-    tag.className = 'brief-role-tag role-badge judge';
-
+    tag.className   = 'brief-role-tag role-badge judge';
     content.innerHTML = `
       <div class="brief-content">
-<span class="highlight">Seu papel:</span> Você é o Juiz deste tribunal.
+<span class="highlight">Seu papel:</span> Você é o Juiz.
 
-Você conduz o julgamento. Após cada rodada de perguntas e respostas, você faz observações, controla o fluxo e ao final dá o <span class="highlight">VEREDITO</span>.
+Conduza o julgamento. Faça observações após cada rodada e dê o VEREDITO ao final.
 
-Observe tudo atentamente. Contradições, hesitações, excesso de detalhes ou falta deles — tudo importa.
-
-O tribunal começa quando todos estiverem prontos.
+Observe contradições, hesitações e consistência nas respostas.
       </div>`;
   }
 }
 
 function readyUp() {
   if (G.myRole === 'accuser') {
-    const ctx = document.getElementById('accuserContext');
+    const ctx = document.getElementById('accuserContextInput');
     if (ctx && ctx.value.trim()) {
       G.accuserContext = ctx.value.trim();
-      update(ref(db, `rooms/${G.room}`), { accuserContext: G.accuserContext });
+      db.ref(`rooms/${G.room}/accuserContext`).set(G.accuserContext);
     }
   }
   showScreen('courtroom');
@@ -1156,316 +1103,241 @@ function readyUp() {
 // COURTROOM
 // ═══════════════════════════════════════════════════
 function initCourtroom() {
-  const cp = document.getElementById('courtPlayers');
-  cp.innerHTML = G.players.map(p =>
+  // Header players (show names only, no roles)
+  document.getElementById('courtPlayers').innerHTML = G.players.map(p =>
     `<div class="court-player ${p.name === G.myName ? 'you' : ''}">${p.name}${p.name === G.myName ? ' (você)' : ''}</div>`
   ).join('');
 
+  // Sidebar case
   const c = G.caseData;
   document.getElementById('caseSummary').textContent =
     `Crime: ${c.crime}\nVítima: ${c.victim}\nLocal: ${c.location}\nHorário: ${c.time}`;
 
+  // Listen for messages and gameState
   listenMessages();
   listenGameState();
 
-  // Only the accuser (or first real player) triggers the opening
-  if (G.myRole === 'accuser' || (G.judgeIsBot && G.myRole === 'judge') ||
-      (!G.players.find(p=>p.role==='accuser') && G.myRole === 'suspect')) {
-    openingStatement();
-  } else {
-    setTurn('wait');
-  }
-}
-
-async function openingStatement() {
-  showTyping(true);
-  G.phase = 'opening';
-  updatePhaseUI();
-
-  const c = G.caseData;
-  const accuserCtx = G.accuserContext || 'O acusador alega que o suspeito é o responsável pelo crime.';
-
-  const prompt = `Você é o Juiz de um tribunal moderno, formal e intimidador.
-Faça a abertura do julgamento do crime: ${c.crime} contra ${c.victim}, no ${c.location}.
-O acusador argumenta: "${accuserCtx}"
-Seja formal, sério, conciso (máx 4 frases). Não use asteriscos ou markdown.`;
-
-  const reply = await callAI(prompt);
-  showTyping(false);
-
-  const judgeName = G.judgeIsBot ? 'Juiz' : G.players.find(p=>p.role==='judge')?.name || 'Juiz';
-  await pushMsg('judge', judgeName, reply);
-
-  setTimeout(() => startInterrogation(), 1000);
-}
-
-async function startInterrogation() {
-  G.phase = 'interrogation';
-  G.round = 0;
-  updatePhaseUI();
-
-  await pushMsg('system', '', '— INÍCIO DO INTERROGATÓRIO —');
-  await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'accuser', round: 0, phase: 'interrogation' });
-}
-
-function setTurn(role) {
-  if (role === 'wait') {
-    document.getElementById('inputArea').style.display = 'none';
-    document.getElementById('waitArea').style.display = 'flex';
-    document.getElementById('waitingFor').textContent = '...';
-    return;
-  }
-
-  const isMe = G.myRole === role;
-  document.getElementById('inputArea').style.display = isMe ? 'flex' : 'none';
-  document.getElementById('waitArea').style.display = isMe ? 'none' : 'flex';
-
-  if (!isMe) {
-    const roleName = role === 'accuser' ? 'Acusador' : role === 'suspect' ? 'Suspeito' : 'Juiz';
-    document.getElementById('waitingFor').textContent = roleName;
-    return;
-  }
-
-  const hints = {
-    accuser: 'Faça sua pergunta ou declaração',
-    suspect: 'Responda ao acusador',
-    judge: 'Faça sua observação como Juiz'
-  };
-  document.getElementById('inputHint').textContent = hints[role] || '';
-  document.getElementById('msgInput').placeholder =
-    role === 'accuser' ? 'Faça uma pergunta ao suspeito...' :
-    role === 'suspect' ? 'Responda ou declare sua inocência...' :
-    'Sua palavra como Juiz...';
-  document.getElementById('msgInput').focus();
-}
-
-function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
-}
-
-async function sendMessage() {
-  const input = document.getElementById('msgInput');
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = '';
-
-  document.getElementById('inputArea').style.display = 'none';
-
-  // Write to Firebase
-  await pushMsg(G.myRole, G.myName, text);
-  G.transcript.push({ role: G.myRole, name: G.myName, content: text });
-
+  // Only accuser (or bot coordinator) kicks off the opening
   if (G.myRole === 'accuser') {
-    if (G.phase === 'closing') {
-      // After accuser closing, check if suspect is real player
-      const suspectIsReal = G.players.find(p => p.role === 'suspect' && p.name !== G.myName);
-      if (suspectIsReal) {
-        await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'closing_suspect' });
-        setTurn('wait');
-      } else {
-        await botSuspectClosing(text);
-      }
-      return;
-    }
-    const suspectIsReal = G.players.find(p => p.role === 'suspect' && p.name !== G.myName);
-    if (suspectIsReal) {
-      await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'suspect', round: G.round });
-      setTurn('wait');
-    } else {
-      await botSuspectReply(text);
-    }
-  } else if (G.myRole === 'suspect') {
-    G.round++;
-    if (G.phase === 'closing') {
-      await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'verdict' });
-    } else {
-      await afterExchange();
-    }
-  } else if (G.myRole === 'judge') {
-    G.round++;
-    await afterExchange();
+    openingStatement();
   }
 }
 
-async function pushMsg(role, name, content, type='msg') {
-  const msgRef = push(ref(db, `rooms/${G.room}/messages`));
-  await set(msgRef, { role, name, content, type, ts: Date.now() });
-}
+// ── Firebase listeners ──────────────────────────────
 
-let _lastMsgCount = 0;
 function listenMessages() {
-  onValue(ref(db, `rooms/${G.room}/messages`), snap => {
-    const msgs = snap.val();
-    if (!msgs) return;
-    const all = Object.values(msgs).sort((a,b) => a.ts - b.ts);
-    // Render only new ones
-    if (all.length > _lastMsgCount) {
-      all.slice(_lastMsgCount).forEach(m => {
-        if (m.type === 'evidence') {
-          try { showEvidence(JSON.parse(m.content)); } catch { showEvidence({title:'Prova', desc: m.content}); }
-        } else {
-          addMessage(m.role, m.name, m.content);
-        }
-        G.transcript.push({ role: m.role, name: m.name, content: m.content });
-      });
-      _lastMsgCount = all.length;
-    }
+  db.ref(`rooms/${G.room}/messages`).on('value', snap => {
+    const data = snap.val();
+    if (!data) return;
+    const all = Object.values(data).sort((a,b) => a.ts - b.ts);
+    if (all.length <= G.seenMsgCount) return;
+    all.slice(G.seenMsgCount).forEach(m => {
+      if (m.type === 'evidence') {
+        try { showEvidence(JSON.parse(m.content)); }
+        catch { showEvidence({ title: 'Prova', desc: m.content }); }
+      } else {
+        addMsg(m.role, m.name, m.content);
+      }
+      G.transcript.push(m);
+    });
+    G.seenMsgCount = all.length;
   });
 }
 
 function listenGameState() {
-  onValue(ref(db, `rooms/${G.room}/gameState`), snap => {
+  db.ref(`rooms/${G.room}/gameState`).on('value', snap => {
     const state = snap.val();
     if (!state) return;
-    G.round = state.round ?? G.round;
-    if (state.phase) {
-      G.phase = state.phase;
-      updatePhaseUI();
-    }
+
+    if (state.round !== undefined) G.round = state.round;
+    if (state.phase)  { G.phase = state.phase; updatePhaseUI(); }
+
     const turn = state.currentTurn;
     if (!turn) return;
 
+    // Verdict — only accuser generates it (avoids duplication)
     if (turn === 'verdict') {
-      // Only the accuser (who runs bots) generates verdict; others wait for room verdict
-      if (G.myRole === 'accuser' || (G.judgeIsBot && G.myRole === 'suspect')) {
-        generateVerdict();
-      }
+      if (G.myRole === 'accuser') generateVerdict();
+      else setWait('Aguardando veredito...');
       return;
     }
 
-    if (turn === 'closing_accuser') {
-      G.phase = 'closing';
-      updatePhaseUI();
-      if (G.myRole === 'accuser') setTurn('accuser');
-      else setTurn('wait');
-      return;
+    if (turn === G.myRole) {
+      setMyTurn();
+    } else if (turn === 'judge' && G.judgeIsBot && G.myRole === 'accuser') {
+      botJudgeComment();
+    } else {
+      const names = { accuser:'Acusador', suspect:'Suspeito', judge:'Juiz' };
+      setWait(`Aguardando ${names[turn] || turn} falar...`);
     }
-
-    if (turn === 'closing_suspect') {
-      if (G.myRole === 'suspect') setTurn('suspect');
-      else setTurn('wait');
-      return;
-    }
-
-    if (turn === G.myRole) setTurn(G.myRole);
-    else setTurn('wait');
   });
 }
 
-async function botSuspectClosing(accuserClosing) {
-  showTyping(true);
-  const c = G.caseData;
-  const prompt = `Você é o suspeito num tribunal. Fase final: alegações.
-${c.isInnocent ? 'Você é INOCENTE.' : 'Você é CULPADO mas nega tudo.'}
-O acusador disse em suas alegações finais: "${accuserClosing}"
-Faça sua declaração final. Seja dramático, emocional, convincente. Máx 4 frases. Sem markdown.`;
-
-  const reply = await callAI(prompt);
-  showTyping(false);
-  const sName = G.players.find(p=>p.role==='suspect')?.name || 'Suspeito';
-  await pushMsg('suspect', sName, reply);
-  G.transcript.push({ role: 'suspect', name: sName, content: reply });
-  await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'verdict' });
+// Listen for verdict posted by accuser
+function listenVerdict() {
+  db.ref(`rooms/${G.room}/verdict`).on('value', snap => {
+    const v = snap.val();
+    if (v && !G.verdictDone) {
+      G.verdictDone = true;
+      showVerdictScreen(v);
+    }
+  });
 }
 
-async function botSuspectReply(accuserMsg) {
-  showTyping(true);
-  const c = G.caseData;
-  const history = G.transcript.slice(-6).map(t => `${t.name}: ${t.content}`).join('\n');
+// ── Turn management ─────────────────────────────────
 
-  const prompt = `Você é ${G.players.find(p=>p.role==='suspect')?.name || 'o suspeito'} num tribunal.
-${c.isInnocent ? 'Você é INOCENTE. Você não cometeu o crime.' : 'Você é CULPADO mas não vai confessar.'}
+function setMyTurn() {
+  document.getElementById('inputArea').style.display = 'flex';
+  document.getElementById('waitArea').style.display  = 'none';
+  const hints = { accuser:'Faça uma pergunta ao suspeito...', suspect:'Responda ou declare sua inocência...', judge:'Sua palavra como Juiz...' };
+  document.getElementById('msgInput').placeholder = hints[G.myRole] || '';
+  document.getElementById('msgInput').focus();
+}
+
+function setWait(msg) {
+  document.getElementById('inputArea').style.display = 'none';
+  document.getElementById('waitArea').style.display  = 'flex';
+  document.getElementById('waitingFor').textContent  = msg;
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+async function sendMessage() {
+  const input = document.getElementById('msgInput');
+  const text  = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  document.getElementById('inputArea').style.display = 'none';
+
+  await pushMsg(G.myRole, G.myName, text);
+
+  if (G.myRole === 'accuser') {
+    // Check if suspect is a real player in this room
+    const suspectIsReal = G.players.find(p => p.role === 'suspect');
+    if (suspectIsReal) {
+      await setTurnDB('suspect');
+    } else {
+      await botSuspectReply(text);
+    }
+
+  } else if (G.myRole === 'suspect') {
+    G.round++;
+    await db.ref(`rooms/${G.room}/gameState`).update({ round: G.round });
+    if (G.phase === 'closing') {
+      await setTurnDB('verdict');
+    } else {
+      await afterExchange();
+    }
+
+  } else if (G.myRole === 'judge') {
+    G.round++;
+    await db.ref(`rooms/${G.room}/gameState`).update({ round: G.round });
+    await afterExchange();
+  }
+}
+
+async function setTurnDB(turn) {
+  await db.ref(`rooms/${G.room}/gameState`).update({ currentTurn: turn });
+}
+
+// ── Opening ─────────────────────────────────────────
+
+async function openingStatement() {
+  setWait('Juiz abrindo a sessão...');
+  G.phase = 'opening';
+  updatePhaseUI();
+
+  const c   = G.caseData;
+  const ctx = G.accuserContext || 'O acusador alega que o suspeito é o responsável pelo crime.';
+  const prompt = `Você é o Juiz de um tribunal moderno, formal e intimidador.
+Abra o julgamento: crime de ${c.crime} contra ${c.victim}, ocorrido em ${c.location}.
+O acusador argumenta: "${ctx}"
+Seja formal e conciso (máx 4 frases). Sem asteriscos ou markdown.`;
+
+  const reply     = await callAI(prompt);
+  const judgeName = G.judgeIsBot ? 'Juiz' : (G.players.find(p=>p.role==='judge')?.name || 'Juiz');
+  await pushMsg('judge', judgeName, reply);
+  await db.ref(`rooms/${G.room}/gameState`).set({ phase:'interrogation', round:0, currentTurn:'accuser' });
+}
+
+// ── Interrogation ────────────────────────────────────
+
+async function botSuspectReply(accuserMsg) {
+  setWait('Suspeito respondendo...');
+  const c       = G.caseData;
+  const history = G.transcript.slice(-6).map(t=>`${t.name}: ${t.content}`).join('\n');
+  const sName   = G.players.find(p=>p.role==='suspect')?.name || 'Suspeito';
+
+  const prompt = `Você é ${sName} num tribunal.
+${c.isInnocent ? 'INOCENTE — não cometeu o crime.' : 'CULPADO — mas não vai confessar.'}
 Sua história: ${c.suspectStory}
-Histórico: ${history}
+Histórico recente:\n${history}
 Acusador disse: "${accuserMsg}"
 Responda de forma humana, com nervosismo plausível. Máx 3 frases. Sem markdown.`;
 
   const reply = await callAI(prompt);
-  showTyping(false);
-
-  const sName = G.players.find(p=>p.role==='suspect')?.name || 'Suspeito';
   await pushMsg('suspect', sName, reply);
-  G.transcript.push({ role: 'suspect', name: sName, content: reply });
   G.round++;
+  await db.ref(`rooms/${G.room}/gameState`).update({ round: G.round });
   await afterExchange();
 }
 
 async function afterExchange() {
+  // Evidence every 2 rounds starting at round 2
   if (G.round >= 2 && G.round % 2 === 0 && G.evidences.length < 3) {
     await generateEvidence();
   }
 
-  if (G.round % 2 === 0 && G.judgeIsBot) {
-    await botJudgeComment();
-  }
-
   if (G.round >= G.maxRounds) {
-    setTimeout(() => startClosing(), 800);
+    await startClosing();
     return;
   }
 
-  await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'accuser', round: G.round });
+  // Bot judge comment every 2 rounds
+  if (G.round % 2 === 0 && G.judgeIsBot) {
+    await setTurnDB('judge');
+  } else {
+    await setTurnDB('accuser');
+  }
 }
 
 async function botJudgeComment() {
-  if (!G.judgeIsBot) return;
-  showTyping(true);
-  const history = G.transcript.slice(-4).map(t => `${t.name}: ${t.content}`).join('\n');
+  const history = G.transcript.slice(-4).map(t=>`${t.name}: ${t.content}`).join('\n');
+  const prompt  = `Você é um Juiz de tribunal severo.
+Fase: ${G.phase}. Rodada: ${G.round}.
+Últimas falas:\n${history}
+Faça 1-2 frases como Juiz. Sem markdown.`;
 
-  const prompt = `Você é um Juiz de tribunal severo e observador.
-Fase: ${G.phase}. Turno: ${G.round}.
-Últimas falas: ${history}
-Faça um comentário breve (1-2 frases) como Juiz. Sem markdown.`;
+  const reply     = await callAI(prompt);
+  const judgeName = G.judgeIsBot ? 'Juiz' : (G.players.find(p=>p.role==='judge')?.name || 'Juiz');
+  await pushMsg('judge', judgeName, reply);
 
-  const reply = await callAI(prompt);
-  showTyping(false);
-  await pushMsg('judge', 'Juiz', reply);
-
-  if (G.phase === 'closing') await generateVerdict();
+  if (G.phase === 'closing') {
+    await setTurnDB('verdict');
+  } else {
+    await setTurnDB('accuser');
+  }
 }
+
+// ── Evidence ─────────────────────────────────────────
 
 async function generateEvidence() {
   const c = G.caseData;
   const n = G.evidences.length + 1;
-
-  const prompt = `Gere uma prova forense/investigativa para o julgamento de ${c.crime} de ${c.victim}.
+  const prompt = `Gere uma prova para o julgamento de ${c.crime} de ${c.victim}.
 O suspeito ${c.isInnocent ? 'É INOCENTE' : 'é culpado'}.
-Prova nº ${n}: deve ser ${c.isInnocent ? 'ambígua ou favorável ao suspeito' : n === 1 ? 'suspeita mas não conclusiva' : 'incriminadora'}.
-Responda em JSON: {"title":"...","desc":"..."}`;
+Prova nº${n}: ${c.isInnocent ? 'ambígua ou favorável ao suspeito' : n===1 ? 'suspeita mas não conclusiva' : 'incriminadora'}.
+Responda APENAS em JSON: {"title":"...","desc":"..."}`;
 
   const res = await callAI(prompt);
-  try {
-    const clean = res.replace(/```json|```/g,'').trim();
-    const ev = JSON.parse(clean);
-    G.evidences.push(ev);
-    // Push evidence as special message to Firebase so all players see it
-    await pushMsg('system', '', JSON.stringify(ev), 'evidence');
-  } catch {
-    const ev = { title: `Evidência #${n}`, desc: res.slice(0, 120) };
-    G.evidences.push(ev);
-    await pushMsg('system', '', JSON.stringify(ev), 'evidence');
-  }
-}
+  let ev;
+  try { ev = JSON.parse(res.replace(/```json|```/g,'').trim()); }
+  catch { ev = { title:`Evidência #${n}`, desc: res.slice(0,120) }; }
 
-async function startClosing() {
-  G.phase = 'closing';
-  updatePhaseUI();
-  await pushMsg('system', '', '— ALEGAÇÕES FINAIS —');
-
-  if (G.judgeIsBot) {
-    await pushMsg('judge', 'Juiz', 'Passamos às alegações finais. Acusador, apresente sua conclusão.');
-  }
-
-  await update(ref(db, `rooms/${G.room}/gameState`), { currentTurn: 'closing_accuser', phase: 'closing' });
-}
-
-function startClosingLocal() {
-  G.phase = 'closing';
-  updatePhaseUI();
-  setTurn('accuser');
+  G.evidences.push(ev);
+  await db.ref(`rooms/${G.room}/messages`).push({ role:'system', name:'', content: JSON.stringify(ev), type:'evidence', ts: Date.now() });
 }
 
 function showEvidence(ev) {
@@ -1476,93 +1348,96 @@ function showEvidence(ev) {
     <div class="evidence-text">${ev.desc}</div>
   </div>`;
   document.getElementById('transcript').appendChild(div);
-  scrollTranscript();
+  scrollDown();
 
   const log = document.getElementById('evidenceLog');
-  const placeholder = log.querySelector('div[style*="italic"]');
-  if (placeholder) log.innerHTML = '';
+  if (log.querySelector('div[style*="italic"]')) log.innerHTML = '';
   const mini = document.createElement('div');
   mini.className = 'evidence-mini';
-  mini.textContent = ev.title + ': ' + ev.desc;
+  mini.textContent = `${ev.title}: ${ev.desc}`;
   log.appendChild(mini);
 }
 
-async function generateVerdict() {
-  if (G._verdictGenerating) return;
-  G._verdictGenerating = true;
+// ── Closing ───────────────────────────────────────────
 
+async function startClosing() {
+  G.phase = 'closing';
+  updatePhaseUI();
+  await pushMsg('system','','— ALEGAÇÕES FINAIS —');
+
+  if (G.judgeIsBot) {
+    await pushMsg('judge','Juiz','Passamos às alegações finais. Acusador, apresente sua conclusão.');
+  }
+  await setTurnDB('accuser');
+}
+
+// ── Verdict ───────────────────────────────────────────
+
+async function generateVerdict() {
+  if (G.verdictDone) return;
+  G.verdictDone = true;
   G.phase = 'verdict';
   updatePhaseUI();
-  showTyping(true);
+  setWait('Juiz deliberando...');
 
-  const c = G.caseData;
-  const transcript = G.transcript.map(t => `${t.name} (${t.role}): ${t.content}`).join('\n');
-  const evidencesSummary = G.evidences.map(e => e.title + ': ' + e.desc).join('\n');
+  const c      = G.caseData;
+  const trs    = G.transcript.map(t=>`${t.name}(${t.role}): ${t.content}`).join('\n');
+  const evList = G.evidences.map(e=>`${e.title}: ${e.desc}`).join('\n');
 
-  const prompt = `Você é um Juiz dando o veredito final de um tribunal.
+  const prompt = `Você é o Juiz dando o veredito final.
 Crime: ${c.crime} de ${c.victim}.
-O suspeito ${c.isInnocent ? 'É INOCENTE (mas você não sabe disso — julgue pelo tribunal)' : 'é culpado'}.
-Transcrição: ${transcript}
-Provas: ${evidencesSummary}
-Dê um veredito: CULPADO ou INOCENTE, com fundamentação em 3-5 frases. Seja dramático e formal.
-Responda em JSON: {"verdict":"CULPADO" ou "INOCENTE","reasoning":"..."}`;
+O suspeito ${c.isInnocent ? 'É INOCENTE (julgue pelo que viu no tribunal, sem saber disso)' : 'é culpado'}.
+Transcrição:\n${trs}
+Provas:\n${evList}
+Dê veredito CULPADO ou INOCENTE com fundamentação dramática (3-5 frases).
+Responda APENAS em JSON: {"verdict":"CULPADO","reasoning":"..."}`;
 
   const res = await callAI(prompt);
-  showTyping(false);
+  let v;
+  try { v = JSON.parse(res.replace(/```json|```/g,'').trim()); }
+  catch { v = { verdict:'CULPADO', reasoning: res }; }
 
-  let verdict = { verdict: 'CULPADO', reasoning: res };
-  try {
-    verdict = JSON.parse(res.replace(/```json|```/g,'').trim());
-  } catch {}
-
-  // Save verdict to Firebase so all see it
-  await update(ref(db, `rooms/${G.room}`), { verdict });
-  showVerdictScreen(verdict);
+  await db.ref(`rooms/${G.room}/verdict`).set(v);
+  showVerdictScreen(v);
 }
 
 function showVerdictScreen(v) {
   showScreen('verdict-screen');
-
-  const title = document.getElementById('verdictTitle');
-  const reasoning = document.getElementById('verdictReasoning');
-  const truth = document.getElementById('truthReveal');
-
-  title.textContent = v.verdict;
-  title.className = 'verdict-title ' + (v.verdict === 'CULPADO' ? 'guilty' : 'innocent');
-  reasoning.textContent = v.reasoning;
-
-  // Reveal the truth
   const c = G.caseData;
+  document.getElementById('verdictTitle').textContent  = v.verdict;
+  document.getElementById('verdictTitle').className    = 'verdict-title ' + (v.verdict==='CULPADO'?'guilty':'innocent');
+  document.getElementById('verdictReasoning').textContent = v.reasoning;
+
+  const truth = document.getElementById('truthReveal');
   truth.style.display = 'block';
-  truth.innerHTML = `<strong>⚖️ A Verdade (revelação pós-julgamento)</strong>
+  const acertou = v.verdict === (c.isInnocent ? 'INOCENTE' : 'CULPADO');
+  truth.innerHTML = `<strong>⚖️ A Verdade (revelação)</strong>
 O suspeito era <strong>${c.isInnocent ? 'INOCENTE' : 'CULPADO'}</strong>.
-${c.isInnocent ? `O verdadeiro culpado: ${c.realKiller || 'não identificado'}. ` : ''}
+${c.isInnocent && c.realKiller ? `Verdadeiro culpado: ${c.realKiller}.` : ''}
 Crime: ${c.method}. Motivo: ${c.motive}.
-${v.verdict !== (c.isInnocent ? 'INOCENTE' : 'CULPADO') ? '❌ O tribunal errou o julgamento.' : '✅ A justiça foi feita.'}`;
+${acertou ? '✅ A justiça foi feita.' : '❌ O tribunal errou o julgamento.'}`;
 }
 
 // ═══════════════════════════════════════════════════
-// UI HELPERS
+// HELPERS
 // ═══════════════════════════════════════════════════
-function addMessage(role, name, content) {
-  const transcript = document.getElementById('transcript');
+
+async function pushMsg(role, name, content, type='msg') {
+  await db.ref(`rooms/${G.room}/messages`).push({ role, name, content, type, ts: Date.now() });
+}
+
+function addMsg(role, name, content) {
+  const t   = document.getElementById('transcript');
   const div = document.createElement('div');
   div.className = 'msg ' + role;
-  div.innerHTML = `
-    <div class="msg-header">${name}${role === 'judge' ? ' ⚖️' : ''}</div>
-    <div class="msg-body">${content}</div>`;
-  transcript.appendChild(div);
-  scrollTranscript();
+  div.innerHTML = `<div class="msg-header">${name}${role==='judge'?' ⚖️':''}</div><div class="msg-body">${content}</div>`;
+  t.appendChild(div);
+  scrollDown();
 }
 
-function scrollTranscript() {
+function scrollDown() {
   const t = document.getElementById('transcript');
   setTimeout(() => t.scrollTop = t.scrollHeight, 50);
-}
-
-function showTyping(show) {
-  document.getElementById('typingIndicator').className = 'typing-indicator' + (show ? ' active' : '');
-  if (show) scrollTranscript();
 }
 
 function showScreen(id) {
@@ -1571,53 +1446,32 @@ function showScreen(id) {
 }
 
 function updatePhaseUI() {
-  const phases = ['opening','interrogation','evidence','closing','verdict'];
-  const labels = ['Abertura','Interrogatório','Provas','Alegações Finais','Veredito'];
-  const current = ['opening','interrogation','interrogation','closing','verdict'].indexOf(G.phase);
-
-  phases.forEach((p, i) => {
-    const dot = document.getElementById(`p${i+1}dot`);
-    const label = document.getElementById(`p${i+1}label`);
-    if (!dot) return;
-    const idx = phases.indexOf(G.phase);
-    if (i < idx) { dot.className = 'phase-dot done'; label.className = 'phase-label'; }
-    else if (i === idx) { dot.className = 'phase-dot active'; label.className = 'phase-label active'; }
-    else { dot.className = 'phase-dot'; label.className = 'phase-label'; }
-  });
-
-  const phaseLabel = document.getElementById('phaseLabel');
+  const phases = ['opening','interrogation','interrogation','closing','verdict'];
+  const idx    = phases.indexOf(G.phase);
+  for (let i = 1; i <= 5; i++) {
+    const dot   = document.getElementById(`p${i}dot`);
+    const label = document.getElementById(`p${i}label`);
+    if (!dot) continue;
+    if (i-1 < idx)      { dot.className='phase-dot done';   label.className='phase-label'; }
+    else if (i-1 === idx){ dot.className='phase-dot active'; label.className='phase-label active'; }
+    else                  { dot.className='phase-dot';       label.className='phase-label'; }
+  }
   const map = { opening:'Abertura', interrogation:'Interrogatório', closing:'Alegações Finais', verdict:'Veredito' };
-  if (phaseLabel) phaseLabel.textContent = map[G.phase] || G.phase;
+  const pl  = document.getElementById('phaseLabel');
+  if (pl) pl.textContent = map[G.phase] || G.phase;
 }
 
-// ═══════════════════════════════════════════════════
-// AI CALL
-// ═══════════════════════════════════════════════════
 async function callAI(prompt) {
   try {
-    const res = await fetch(API, {
+    const res  = await fetch(API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ model:MODEL, max_tokens:1000, messages:[{ role:'user', content:prompt }] })
     });
     const data = await res.json();
     return data.content?.[0]?.text || '...';
-  } catch {
-    return '(erro de conexão)';
-  }
+  } catch { return '(erro de conexão)'; }
 }
-
-// ═══════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════
-// Cleanup old rooms on load
-window.addEventListener('load', () => {
-  // Nothing needed
-});
 </script>
 </body>
 </html>
